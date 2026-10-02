@@ -7,6 +7,8 @@ Serves web/ and adds three endpoints the builder uses to pull videos by link:
   POST /api/pull   {url, start?, end?, mute?} -> {id, filename, title, size_bytes, stats, video_url}
   POST /api/stats  {url}      -> {platform, handle, likes, comments, ...}
   GET  /api/video/<id>.mp4    -> the pulled MP4
+  POST /api/brand  {url, site?} -> {handle, name, site, items: [{kind, label, url}]}
+  GET  /api/asset/<dir>/<file> -> a pulled brand image
   QR tracking (QR Code Generator PRO, see qrcg.py):
   GET  /api/qr/status         -> {connected}
   POST /api/qr/key  {key}     -> save + validate the API key (stored on this Mac only)
@@ -34,9 +36,12 @@ ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 CACHE = ROOT / "cache"
 PULLER = ROOT / "puller" / "pull_video.py"
+BRAND = ROOT / "puller" / "brand.py"
 PORT = int(os.environ.get("PORT", "8765"))
 
 ID_RE = re.compile(r"^v-[0-9-]{1,40}$")
+ASSET_RE = re.compile(r"^b-[0-9-]{1,40}/[a-z]+-[0-9a-f]{12}(-bg)?\.(png|jpg|svg)$")
+ASSET_TYPES = {"png": "image/png", "jpg": "image/jpeg", "svg": "image/svg+xml"}
 QR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 TS_RE = re.compile(r"^\d{1,2}(:\d{1,2}){0,2}(\.\d+)?$")
 LOCAL_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
@@ -78,6 +83,7 @@ def prune_cache() -> None:
     for f in CACHE.glob("*"):
         if f.is_file() and f.stat().st_mtime < cutoff:
             f.unlink(missing_ok=True)
+    prune_dirs()
 
 
 def pull(body: dict) -> dict:
@@ -109,6 +115,40 @@ def pull(body: dict) -> dict:
         "stats": info.get("stats", {}),
         "video_url": f"/api/video/{video.stem}.mp4",
     }
+
+
+def brand(body: dict) -> dict:
+    url = check_url(body.get("url"))
+    site = body.get("site") or None
+    if site is not None:
+        site = check_url(site if re.match(r"^https?://", site) else "https://" + str(site))
+    CACHE.mkdir(exist_ok=True)
+    with _lock:
+        prune_cache()
+        folder = "b-" + time.strftime("%Y%m%d-%H%M%S")
+        time.sleep(1)
+    out = CACHE / folder
+    run = subprocess.run([sys.executable, str(BRAND), url, str(out)] + ([site] if site else []),
+                         capture_output=True, text=True, timeout=150)
+    if run.returncode != 0:
+        msg = run.stdout + run.stderr
+        if "Full Disk Access" in msg:
+            raise PullError("safari_cookies_blocked", "This post needs your Safari login, and macOS is blocking it. "
+                            "See 'If a pull is blocked' in the help.")
+        tail = [l for l in msg.strip().splitlines() if l.strip()][-1:] or ["unknown error"]
+        raise PullError("pull_failed", re.sub(r"^.*?ERROR:\s*", "", tail[0])[:300])
+    kit = json.loads(run.stdout.strip().splitlines()[-1])
+    kit["items"] = [{**i, "url": f"/api/asset/{folder}/{i.pop('file')}"} for i in kit["items"]]
+    return kit
+
+
+def prune_dirs() -> None:
+    cutoff = time.time() - 86400
+    for d in CACHE.glob("b-*"):
+        if d.is_dir() and d.stat().st_mtime < cutoff:
+            for f in d.iterdir():
+                f.unlink(missing_ok=True)
+            d.rmdir()
 
 
 def stats(body: dict) -> dict:
@@ -154,6 +194,20 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, qrcg.scans(m.group(1)))
             except qrcg.QrcgError as e:
                 return self._json(502, {"code": e.code, "message": str(e)})
+        m = re.fullmatch(r"/api/asset/(.+)", self.path)
+        if m:
+            rel = m.group(1)
+            f = CACHE / rel
+            if not ASSET_RE.match(rel) or not f.is_file():
+                return self._json(404, {"code": "not_found", "message": "That image is gone; pull the brand look again."})
+            data = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", ASSET_TYPES[rel.rsplit(".", 1)[1]])
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")  # inert SVGs
+            self.end_headers()
+            self.wfile.write(data)
+            return
         m = re.fullmatch(r"/api/video/([^/]+)\.mp4", self.path)
         if m:
             vid = m.group(1)
@@ -185,6 +239,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, pull(body))
             if self.path == "/api/stats":
                 return self._json(200, stats(body))
+            if self.path == "/api/brand":
+                return self._json(200, brand(body))
             if self.path == "/api/qr/key":
                 qrcg.save_key(body.get("key"))
                 return self._json(200, {"connected": True})

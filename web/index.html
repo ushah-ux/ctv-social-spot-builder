@@ -110,6 +110,21 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
 .cmd code{flex:1;min-width:0;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .cmd .copy{padding:5px 12px;font-size:11.5px}
 #btnLinkHelp{align-self:flex-start}
+.brandopt{background:transparent;box-shadow:none;border-top:1px solid var(--line);border-radius:0}
+.brandopt>summary{padding:10px 0 4px;font-size:13px}
+.brandopt-body{display:flex;flex-direction:column;gap:10px;padding:4px 0 2px}
+.brandopt-body .row>button{flex:0 0 auto}
+.bk-group{display:flex;flex-direction:column;gap:6px}
+.bk-opts{display:flex;gap:8px;flex-wrap:wrap}
+.bk-opt{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;cursor:pointer;font-size:11px;color:var(--muted);text-align:center}
+.bk-opt input{position:absolute;opacity:0;pointer-events:none}
+.bk-opt .thumb{width:104px;height:64px;border-radius:10px;border:2px solid var(--line);background:#fff center/contain no-repeat;display:block}
+.bk-opt.bgthumb .thumb{background-size:cover}
+.bk-opt .thumb.none{background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+.bk-opt input:checked+.thumb{border-color:var(--magnet);box-shadow:0 0 0 2px var(--magnet)}
+.bk-opt input:focus-visible+.thumb{outline:2px solid var(--magnet);outline-offset:2px}
+.bk-swatch{display:inline-block;width:16px;height:16px;border-radius:4px;border:1px solid var(--line);vertical-align:-3px;margin:0 4px}
+
 .track{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--lead);border-radius:var(--r-s);padding:12px;background:var(--sunk)}
 .track-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .track-body{display:flex;flex-direction:column;gap:10px}
@@ -169,6 +184,14 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
             <label class="f"><span>End (optional)</span><input type="text" id="pbEnd" placeholder="0:15"></label>
           </div>
           <div class="row"><button type="button" class="rec" id="pbGo">Pull video + stats</button><button type="button" id="pbStats">Fill stats only</button></div>
+          <details class="brandopt">
+            <summary>Brand look <span class="tag">Logo · background</span></summary>
+            <div class="brandopt-body">
+              <label class="f"><span>Brand website (optional, helps find the logo)</span><input type="url" id="bkSite" placeholder="https://www.brand.com"></label>
+              <div class="row"><button type="button" id="bkGo">Pull brand look</button></div>
+              <div id="bkPanel" hidden></div>
+            </div>
+          </details>
           <div class="prog" aria-hidden="true"><i id="pbBar"></i></div>
           <p class="status" id="pbStatus" role="status"></p>
         </div>
@@ -844,6 +867,83 @@ document.addEventListener("click",e=>{if(e.target&&(e.target.id==="qGen"||e.targ
 box.hidden=false;render();setMode("dyn");
 get("/api/qr/status").then(d=>{helperOk=true;connected=!!d.connected;setMode(mode);render();if(loadRec()&&!$("qtInfo").hidden&&connected)refreshScans();})
   .catch(()=>{helperOk=false;$("qtConnect").hidden=true;setMode("static");});
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const panel=$("bkPanel"), st=$("pbStatus");
+function say(msg,cls){st.textContent=msg;st.className="status"+(cls?" "+cls:"");}
+function setField(id,val){const el=$(id);if(!el||val==null)return;if(el.type==="checkbox")el.checked=!!val;else el.value=val;el.dispatchEvent(new Event("input",{bubbles:true}));}
+async function putFile(inputId,url,name){
+  const blob=await (await fetch(url)).blob();
+  const file=new File([blob],name,{type:blob.type});
+  const dt=new DataTransfer();dt.items.add(file);
+  const el=$(inputId);el.files=dt.files;el.dispatchEvent(new Event("change"));
+}
+/* most common strong colour in an image (ignores near-white, near-black and greys) */
+function brandColour(url){
+  return new Promise(res=>{
+    const im=new Image();im.onload=()=>{
+      try{
+        const c=document.createElement("canvas"),n=48;c.width=n;c.height=n;const x=c.getContext("2d");x.drawImage(im,0,0,n,n);
+        const d=x.getImageData(0,0,n,n).data,bins={};
+        for(let i=0;i<d.length;i+=4){
+          if(d[i+3]<128)continue;const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+          if(mx<40||mn>225||mx-mn<40)continue;
+          const k=(r>>4)+","+(g>>4)+","+(b>>4);bins[k]=(bins[k]||0)+1+(mx-mn)/255;
+        }
+        const top=Object.entries(bins).sort((a,b)=>b[1]-a[1])[0];
+        if(!top)return res(null);
+        const [r,g,b]=top[0].split(",").map(v=>v*16+8);
+        res("#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join(""));
+      }catch(e){res(null);}
+    };im.onerror=()=>res(null);im.src=url;
+  });
+}
+function group(kind,title,items,cls){
+  if(!items.length)return "";
+  const opts=items.map((it,i)=>`<label class="bk-opt ${cls||""}"><input type="radio" name="bk-${kind}" value="${i}" ${i===0?"checked":""}><span class="thumb" style="background-image:url('${it.url}')"></span>${it.label}</label>`).join("");
+  return `<div class="bk-group"><span class="lbl">${title}</span><div class="bk-opts">${opts}<label class="bk-opt"><input type="radio" name="bk-${kind}" value="keep"><span class="thumb none">Keep current</span>&nbsp;</label></div></div>`;
+}
+let kit=null;
+$("bkGo").onclick=async()=>{
+  const url=$("pbUrl").value.trim();
+  if(!/^https?:\/\//.test(url)){say("Paste the post's link in Pull from a link first.","err");return;}
+  const site=$("bkSite").value.trim();
+  const b=$("bkGo");b.disabled=true;panel.hidden=true;say("Looking for the brand's profile picture, logo and backgrounds… (up to a minute)");
+  try{
+    const r=await fetch("/api/brand",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,site:site||undefined})});
+    const d=await r.json().catch(()=>({message:"Unexpected reply from the helper."}));
+    if(!r.ok)throw d;
+    kit=d;
+    const by=k=>kit.items.filter(i=>i.kind===k);
+    const html=group("logo","Logo",by("logo"))+group("avatar","Avatar (in the phone)",by("avatar"))+group("background","Background",by("background"),"bgthumb");
+    if(!html){say("Couldn't find brand images for that post."+(site?"":" Try adding the brand's website."),"err");return;}
+    const firstLogo=by("logo")[0], colour=firstLogo?await brandColour(firstLogo.url):null;
+    panel.innerHTML=html+(colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
+      `<div class="row"><button type="button" class="rec" id="bkApply">Apply selected</button></div>`;
+    panel.dataset.colour=colour||"";
+    panel.hidden=false;
+    say("Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected."+(by("logo").length&&!by("logo").some(i=>/website/i.test(i.label))?" Tip: add the brand's website to look for its real logo.":""),"ok");
+    $("bkApply").onclick=apply;
+  }catch(e){say((e&&e.message)||"Couldn't pull the brand look.","err");}
+  finally{b.disabled=false;}
+};
+async function apply(){
+  const pick=k=>{const v=(panel.querySelector(`input[name="bk-${k}"]:checked`)||{}).value;if(v==null||v==="keep")return null;return kit.items.filter(i=>i.kind===k)[+v];};
+  const done=[];
+  try{
+    const lg=pick("logo"),av=pick("avatar"),bg=pick("background");
+    const ext=u=>u.split(".").pop();
+    if(lg){await putFile("fLogo",lg.url,"brand-logo."+ext(lg.url));done.push("logo");}
+    if(av){await putFile("fAvatar",av.url,"brand-avatar."+ext(av.url));done.push("avatar");}
+    if(bg){await putFile("fBg",bg.url,"brand-background.jpg");done.push("background");}
+    const cb=$("bkColour");if(cb&&cb.checked&&panel.dataset.colour){setField("accent",panel.dataset.colour);done.push("frame glow colour");}
+    say(done.length?"Applied "+done.join(", ")+". Adjust Logo size and Darken background under Brand if needed.":"Nothing selected, so nothing changed.","ok");
+  }catch(e){say("Couldn't apply that: "+(e.message||e),"err");}
+}
 })();
 </script>
 </body>

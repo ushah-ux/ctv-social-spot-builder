@@ -131,6 +131,10 @@ def instagram_profile(username: str) -> dict:
             "followers": user["edge_followed_by"]["count"],
             "following": user["edge_follow"]["count"],
             "verified": bool(user.get("is_verified")),
+            # used by brand.py (profile picture, bio link); not stats
+            "_pic": user.get("profile_pic_url_hd") or user.get("profile_pic_url"),
+            "_site": user.get("external_url"),
+            "_name": user.get("full_name"),
         }
 
     try:
@@ -178,7 +182,7 @@ def social_stats(info: dict) -> dict:
     }
     if platform == "ig" and handle:
         prof = instagram_profile(handle.lstrip("@"))
-        stats.update({k: v for k, v in prof.items() if v is not None})
+        stats.update({k: v for k, v in prof.items() if v is not None and not k.startswith("_")})
     return {k: v for k, v in stats.items() if v is not None}
 
 
