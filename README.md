@@ -4,16 +4,22 @@ Turn a vertical social video into a 16:9 CTV spot: the video plays inside a phon
 
 Paste an Instagram, Facebook, YouTube or TikTok link and the builder pulls the video **and** fills in likes, comments, handle and (when the platform shares them) profile counts.
 
-## Quick start (macOS)
+## Install once, then just open the link (macOS)
 
-1. Download the repo (**Code › Download ZIP**, then unzip) or `git clone` it.
-2. Double-click **`Start Spot Builder.command`**.
-   The first time, macOS may block it: right-click it › **Open** › **Open**. You only do this once.
-3. The builder opens at **http://localhost:8765**. Keep the Terminal window that opens; close it (or press Ctrl+C) to stop.
+1. Download the repo: **Code › Download ZIP**, then unzip it.
+2. Double-click **`Install Spot Builder.command`**.
+   If macOS says it can't be opened: right-click it › **Open** › **Open**. On newer macOS, go to **System Settings › Privacy & Security** and click **Open Anyway**.
+3. The builder opens at **http://localhost:8765**. **Bookmark it.**
 
-The first start sets up a private Python environment (about a minute). After that it starts in seconds. Double-clicking again while it's running just reopens the page.
+That's it. From then on the builder starts by itself whenever you log in, so the bookmark always works. You can delete the downloaded folder; the installer copies what it needs to `~/Library/Application Support/CTV Spot Builder`.
 
-Prefer Terminal? `bash start.sh` in the repo folder does the same thing.
+- **Update:** download the newest version and double-click the installer again.
+- **Remove:** double-click **`Uninstall Spot Builder.command`**.
+- **Needs Python 3.10+.** If it's missing, the installer opens the download page for you.
+
+### Run it only when you want it
+
+Prefer not to have it running in the background? Double-click **`Start Spot Builder.command`** instead (or run `bash start.sh`). It runs while its Terminal window is open.
 
 Needs Python 3.10+ ([python.org/downloads/macos](https://www.python.org/downloads/macos/)) and a current Chrome, Edge or Safari.
 
@@ -35,7 +41,9 @@ Pulled videos are kept in `cache/` (git-ignored) and deleted after a day.
 
 - Public posts usually download without a login.
 - If a post needs one, the puller automatically retries with your **Safari** login. Be logged in to Instagram/Facebook in Safari.
-- macOS blocks reading Safari's cookies until you allow it: **System Settings › Privacy & Security › Full Disk Access**, turn on **Terminal**, then restart `./start.sh`.
+- macOS blocks reading Safari's cookies until you allow it, in **System Settings › Privacy & Security › Full Disk Access**:
+  - **Installed version:** click **+** and add the Python app the installer showed you (usually `/Library/Frameworks/Python.framework/Versions/3.x/Resources/Python.app`), then run the installer again.
+  - **Start Spot Builder / start.sh:** turn on **Terminal**, then start it again.
 - Instagram profile counts (posts, followers, following) need that login too. Shares are rarely shared by any platform. Anything missing stays as it was, so you can type it in.
 
 ## Command line

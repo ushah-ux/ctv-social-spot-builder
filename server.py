@@ -39,9 +39,14 @@ def run_puller(args: list[str], timeout: int) -> str:
     out = run.stdout + run.stderr
     if run.returncode != 0:
         if "Full Disk Access" in out:
+            if os.environ.get("SPOT_BUILDER_SERVICE") == "1":  # installed, running in the background
+                fix = ("click +, add " + os.environ.get("SPOT_BUILDER_FDA_APP", "Python")
+                       + ", then run Install Spot Builder.command again")
+            else:
+                fix = "turn on Terminal, then start the builder again"
             raise PullError("safari_cookies_blocked",
                             "This post needs your Safari login, and macOS is blocking it. Open System Settings › "
-                            "Privacy & Security › Full Disk Access, turn on Terminal, then restart ./start.sh.")
+                            "Privacy & Security › Full Disk Access, " + fix + ".")
         tail = [l for l in out.strip().splitlines() if l.strip()][-1:] or ["unknown error"]
         raise PullError("pull_failed", re.sub(r"^.*?ERROR:\s*", "", tail[0])[:300])
     return run.stdout
