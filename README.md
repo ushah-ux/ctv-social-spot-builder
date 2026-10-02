@@ -6,13 +6,14 @@ Paste an Instagram, Facebook, YouTube or TikTok link and the builder pulls the v
 
 ## Quick start (macOS)
 
-```bash
-git clone <this repo>
-cd ctv-social-spot-builder
-./start.sh
-```
+1. Download the repo (**Code › Download ZIP**, then unzip) or `git clone` it.
+2. Double-click **`Start Spot Builder.command`**.
+   The first time, macOS may block it: right-click it › **Open** › **Open**. You only do this once.
+3. The builder opens at **http://localhost:8765**. Keep the Terminal window that opens; close it (or press Ctrl+C) to stop.
 
-The first run sets up a private Python environment (about a minute). The builder then opens at **http://localhost:8765**. Leave the Terminal window open while you work; press Ctrl+C to stop.
+The first start sets up a private Python environment (about a minute). After that it starts in seconds. Double-clicking again while it's running just reopens the page.
+
+Prefer Terminal? `bash start.sh` in the repo folder does the same thing.
 
 Needs Python 3.10+ ([python.org/downloads/macos](https://www.python.org/downloads/macos/)) and a current Chrome, Edge or Safari.
 
