@@ -9,6 +9,9 @@ Serves web/ and adds three endpoints the builder uses to pull videos by link:
   GET  /api/video/<id>.mp4    -> the pulled MP4
   POST /api/brand  {url, site?} -> {handle, name, site, items: [{kind, label, url}]}
   GET  /api/asset/<dir>/<file> -> a pulled brand image
+  AI backgrounds (Gemini API, see aibg.py):
+  GET  /api/ai/status / POST /api/ai/key {key} / POST /api/ai/forget
+  POST /api/ai/background {prompt, count?, ref?} -> {items: [{label, url, soft_url}]}
   QR tracking (QR Code Generator PRO, see qrcg.py):
   GET  /api/qr/status         -> {connected}
   POST /api/qr/key  {key}     -> save + validate the API key (stored on this Mac only)
@@ -30,7 +33,14 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import aibg
 import qrcg
+
+try:
+    import imageio_ffmpeg
+    aibg.FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
+except Exception:  # only needed for AI backgrounds
+    pass
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -142,6 +152,30 @@ def brand(body: dict) -> dict:
     return kit
 
 
+def ai_background(body: dict) -> dict:
+    if not aibg.FFMPEG:
+        raise PullError("server_error", "The video tools aren't installed. Run the installer again.")
+    ref = None
+    r = body.get("ref")
+    if isinstance(r, str):  # an asset we served, e.g. the blurred video frame → use its sharp original
+        m = re.fullmatch(r"/api/asset/(b-[0-9-]{1,40})/([a-z]+-[0-9a-f]{12})-bg\.jpg", r)
+        if m:
+            for ext in ("png", "jpg"):
+                cand = CACHE / m.group(1) / f"{m.group(2)}.{ext}"
+                if cand.is_file():
+                    ref = cand
+                    break
+    CACHE.mkdir(exist_ok=True)
+    with _lock:
+        prune_cache()
+        folder = "b-" + time.strftime("%Y%m%d-%H%M%S")
+        time.sleep(1)
+    items = aibg.generate(body.get("prompt") if isinstance(body.get("prompt"), str) else "",
+                          CACHE / folder, body.get("count") or 2, ref)
+    return {"items": [{"label": i["label"], "url": f"/api/asset/{folder}/{i['file']}",
+                       "soft_url": f"/api/asset/{folder}/{i['soft']}"} for i in items]}
+
+
 def prune_dirs() -> None:
     cutoff = time.time() - 86400
     for d in CACHE.glob("b-*"):
@@ -184,6 +218,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/health":
             return self._json(200, {"ok": True})
+        if self.path == "/api/ai/status":
+            return self._json(200, {"connected": aibg.connected()})
         if self.path == "/api/qr/status":
             return self._json(200, {"connected": qrcg.connected()})
         m = re.fullmatch(r"/api/qr/scans/([^/]+)", self.path)
@@ -241,6 +277,14 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, stats(body))
             if self.path == "/api/brand":
                 return self._json(200, brand(body))
+            if self.path == "/api/ai/key":
+                aibg.save_key(body.get("key"))
+                return self._json(200, {"connected": True})
+            if self.path == "/api/ai/forget":
+                aibg.forget_key()
+                return self._json(200, {"connected": False})
+            if self.path == "/api/ai/background":
+                return self._json(200, ai_background(body))
             if self.path == "/api/qr/key":
                 qrcg.save_key(body.get("key"))
                 return self._json(200, {"connected": True})
@@ -252,6 +296,8 @@ class Handler(SimpleHTTPRequestHandler):
                 title = body.get("title") if isinstance(body.get("title"), str) else ""
                 return self._json(200, qrcg.create(url, title.strip() or "CTV spot"))
             return self._json(404, {"code": "not_found", "message": "Unknown endpoint."})
+        except aibg.AiError as e:
+            return self._json(400 if e.code == "bad_request" else 502, {"code": e.code, "message": str(e)})
         except qrcg.QrcgError as e:
             return self._json(400 if e.code == "bad_request" else 502, {"code": e.code, "message": str(e)})
         except PullError as e:

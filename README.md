@@ -38,6 +38,14 @@ The builder opens in your browser at **http://localhost:8765**. **Bookmark that 
 
 Pick what you want (or **Keep current**) and click **Apply selected**. Some brand sites draw their logo with code the builder can't read; then the profile picture and website icon are offered instead, or upload the logo yourself under **Brand**.
 
+**Generate an AI background (Gemini):** at the bottom of **Brand look**:
+1. Click **Connect Gemini** once and paste the team's **Gemini API key** (from [Google AI Studio › API keys](https://aistudio.google.com/apikey), on the company Google Cloud project; the Gemini app subscription alone doesn't include API access). The key is saved only on your Mac.
+2. Edit the scene description. It's pre-filled from the brand's name and logo colour after **Pull brand look**.
+3. Tick **Match the video's look** to use a frame from the video as a style reference (available after Pull brand look).
+4. Choose 1–3 options and click **Generate background**, then pick one (optionally **Soften it**) and click **Use as background**.
+
+Every prompt automatically asks for a calm centre (the phone sits there) and **no text, logos or people**. Each option is one paid image on the company's Gemini account. Gemini marks generated images with an invisible SynthID watermark.
+
 **If a pull is blocked**
 - **The post needs a login:** log in to Instagram or Facebook in **Safari**. The builder uses your Safari login automatically.
 - **"macOS is blocking it":** open **System Settings › Privacy & Security › Full Disk Access**, click **+**, and add the Python app the installer showed you (usually in `/Library/Frameworks/Python.framework/Versions/…/Resources/Python.app`). Then double-click the installer again.
@@ -84,6 +92,7 @@ Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the instal
 | `web/index.html` | The builder: a single page, no build step. Canvas preview, layer controls, MediaRecorder export. |
 | `server.py` | Local helper (Python standard library). Serves `web/` and adds `/api/pull`, `/api/stats` and `/api/video/<id>.mp4`. Listens on `127.0.0.1` only and refuses cross-site requests. |
 | `qrcg.py` | Client for the [QR Code Generator PRO API](https://dev.qrcg.com/): creates dynamic URL codes and reads scan totals. The API key lives in `~/.config/ctv-spot-builder/qrcg_api_key` (mode 600), never in the browser. Endpoints: `/api/qr/status`, `/api/qr/key`, `/api/qr/forget`, `/api/qr/create`, `/api/qr/scans/<id>`. |
+| `aibg.py` | Gemini API client for AI backgrounds (`generateContent` with image output, 16:9; tries `gemini-3.1-flash-image`, then `gemini-2.5-flash-image`; override with `GEMINI_IMAGE_MODEL`). Key in `~/.config/ctv-spot-builder/gemini_api_key` (mode 600). Endpoints: `/api/ai/status`, `/api/ai/key`, `/api/ai/forget`, `/api/ai/background`. |
 | `puller/brand.py` | Finds the brand's profile picture, website logo (`<img>`/inline SVG/JSON-LD/icons), and background images, and makes blurred 1920×1080 backgrounds with ffmpeg. Only fetches from public web addresses. Served via `/api/brand` and `/api/asset/…`. |
 | `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. |
 

@@ -110,6 +110,16 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
 .cmd code{flex:1;min-width:0;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .cmd .copy{padding:5px 12px;font-size:11.5px}
 #btnLinkHelp{align-self:flex-start}
+.aibg{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.aibg .row>button{flex:0 0 auto}
+.aibg .row>.f{flex:0 0 120px}
+dialog#aiDlg{width:min(480px,calc(100vw - 32px));border:0;border-radius:var(--r);background:var(--panel);color:var(--fg);box-shadow:0 18px 50px rgba(18,30,51,.35);padding:22px 22px 18px;font:14px/1.5 var(--f-ui)}
+dialog#aiDlg::backdrop{background:rgba(18,30,51,.55)}
+#aiDlg h2{margin:0 36px 6px 0;font-size:18px;font-weight:700}
+#aiDlg ol{margin:10px 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+#aiDlg a{color:var(--link)}
+#aiDlg input{margin-top:6px}
+
 .brandopt{background:transparent;box-shadow:none;border-top:1px solid var(--line);border-radius:0}
 .brandopt>summary{padding:10px 0 4px;font-size:13px}
 .brandopt-body{display:flex;flex-direction:column;gap:10px;padding:4px 0 2px}
@@ -190,6 +200,18 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
               <label class="f"><span>Brand website (optional, helps find the logo)</span><input type="url" id="bkSite" placeholder="https://www.brand.com"></label>
               <div class="row"><button type="button" id="bkGo">Pull brand look</button></div>
               <div id="bkPanel" hidden></div>
+              <div class="aibg" id="aiBox">
+                <div class="track-head"><span class="lbl">AI background · Gemini</span><button type="button" class="linkbtn" id="aiConnect">Connect Gemini</button></div>
+                <label class="f"><span>Describe the scene</span><textarea id="aiPrompt" rows="3" maxlength="1200"></textarea></label>
+                <label class="chk"><input type="checkbox" id="aiRef"> Match the video's look (pull the brand look first)</label>
+                <div class="row">
+                  <label class="f"><span>Options to make</span><select id="aiCount"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></label>
+                </div>
+                <div class="row"><button type="button" class="rec" id="aiGo">Generate background</button></div>
+                <div id="aiPanel" hidden></div>
+                <p class="status" id="aiStatus" role="status"></p>
+                <p class="hint">Text, logos and people are always excluded. Each option is one paid image on the company's Gemini account.</p>
+              </div>
             </div>
           </details>
           <div class="prog" aria-hidden="true"><i id="pbBar"></i></div>
@@ -356,6 +378,19 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
     <li><b>Rate-limited:</b> wait a few minutes and try again, or save the video from the post yourself and upload it.</li>
   </ul>
   <p class="hint">Only use videos you own or have permission to use.</p>
+</dialog>
+<dialog id="aiDlg" aria-labelledby="aiDlgTitle">
+  <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
+  <h2 id="aiDlgTitle">Connect Gemini</h2>
+  <p class="hint">Lets the builder generate backgrounds with Google's Gemini image model. Needs a Gemini <b>API</b> key from a company Google Cloud project with billing (the Gemini app subscription alone doesn't include one).</p>
+  <ol>
+    <li>Get the key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio › API keys</a>, or ask your admin for the team key.</li>
+    <li>Paste it here:
+      <input type="password" id="aiKey" autocomplete="off" spellcheck="false" placeholder="API key"></li>
+  </ol>
+  <div class="row"><button type="button" class="rec" id="aiSave">Connect</button><button type="button" id="aiForget" hidden>Disconnect</button></div>
+  <p class="status" id="aiKeyStatus" role="status"></p>
+  <p class="hint">The key is saved only on this Mac (in your user folder) and is never shown in the page again.</p>
 </dialog>
 <dialog id="qtDlg" aria-labelledby="qtDlgTitle">
   <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
@@ -925,7 +960,7 @@ $("bkGo").onclick=async()=>{
     panel.innerHTML=html+(colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
       `<div class="row"><button type="button" class="rec" id="bkApply">Apply selected</button></div>`;
     panel.dataset.colour=colour||"";
-    panel.hidden=false;
+    panel.hidden=false;aiSync();
     say("Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected."+(by("logo").length&&!by("logo").some(i=>/website/i.test(i.label))?" Tip: add the brand's website to look for its real logo.":""),"ok");
     $("bkApply").onclick=apply;
   }catch(e){say((e&&e.message)||"Couldn't pull the brand look.","err");}
@@ -944,6 +979,72 @@ async function apply(){
     say(done.length?"Applied "+done.join(", ")+". Adjust Logo size and Darken background under Brand if needed.":"Nothing selected, so nothing changed.","ok");
   }catch(e){say("Couldn't apply that: "+(e.message||e),"err");}
 }
+
+/* ---------- AI background (Gemini) ---------- */
+const aiSt=$("aiStatus"), aiDlg=$("aiDlg");
+let aiConnected=false, aiItems=[];
+function aiSay(msg,cls){aiSt.textContent=msg;aiSt.className="status"+(cls?" "+cls:"");}
+function colourName(hex){
+  if(!hex)return "";
+  const n=parseInt(hex.slice(1),16),r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  if(d<.12)return mx>.8?"white":mx<.25?"charcoal":"grey";
+  let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360;
+  return h<15?"red":h<40?"orange":h<65?"golden yellow":h<160?"green":h<200?"teal":h<255?"blue":h<290?"purple":h<335?"pink":"red";
+}
+function defaultPrompt(){
+  const name=(kit&&kit.name)||$("handle").value.replace(/^@/,"")||"";
+  const c=colourName(panel.dataset.colour||"");
+  return "A softly lit, inviting lifestyle setting that suits the brand"+(name?" “"+name+"”":"")+", with natural textures"+(c?" and subtle "+c+" accents":"")+".";
+}
+function frameRef(){return kit?(kit.items.find(i=>i.kind==="background"&&/video frame/i.test(i.label))||null):null;}
+function aiSync(){
+  $("aiConnect").textContent=aiConnected?"Gemini connected":"Connect Gemini";
+  const fr=frameRef();$("aiRef").disabled=!fr;if(!fr)$("aiRef").checked=false;
+  $("aiRef").parentElement.lastChild.textContent=fr?" Match the video's look":" Match the video's look (pull the brand look first)";
+  if(!$("aiPrompt").value||$("aiPrompt").dataset.auto==="1"){$("aiPrompt").value=defaultPrompt();$("aiPrompt").dataset.auto="1";}
+}
+$("aiPrompt").addEventListener("input",()=>{$("aiPrompt").dataset.auto="0";});
+function aiConnectPrompt(){$("aiKey").value="";$("aiForget").hidden=!aiConnected;$("aiKeyStatus").textContent="";$("aiKeyStatus").className="status";aiDlg.showModal();$("aiKey").focus();}
+$("aiConnect").onclick=aiConnectPrompt;
+aiDlg.addEventListener("click",e=>{if(e.target===aiDlg)aiDlg.close();});
+async function aiPost(path,body){
+  let r;try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});}
+  catch(e){throw {message:"The local helper isn't running."};}
+  const d=await r.json().catch(()=>({message:"Unexpected reply from the helper."}));if(!r.ok)throw d;return d;
+}
+$("aiSave").onclick=async()=>{
+  const key=$("aiKey").value.trim(),ks=$("aiKeyStatus");if(!key){ks.textContent="Paste your API key first.";ks.className="status err";return;}
+  $("aiSave").disabled=true;ks.textContent="Checking the key…";ks.className="status";
+  try{await aiPost("/api/ai/key",{key});$("aiKey").value="";aiConnected=true;ks.textContent="Connected.";ks.className="status ok";aiSync();setTimeout(()=>aiDlg.close(),700);}
+  catch(e){ks.textContent=e.message||"Couldn't connect.";ks.className="status err";}
+  finally{$("aiSave").disabled=false;}
+};
+$("aiForget").onclick=async()=>{try{await aiPost("/api/ai/forget");}catch(e){}aiConnected=false;$("aiKeyStatus").textContent="Disconnected. The key was removed from this Mac.";$("aiKeyStatus").className="status ok";$("aiForget").hidden=true;aiSync();};
+$("aiGo").onclick=async()=>{
+  if(!aiConnected){aiConnectPrompt();return;}
+  const prompt=$("aiPrompt").value.trim();if(!prompt){aiSay("Describe the scene first.","err");return;}
+  const fr=$("aiRef").checked?frameRef():null, count=+$("aiCount").value;
+  const b=$("aiGo");b.disabled=true;$("aiPanel").hidden=true;aiSay("Generating "+count+" background"+(count>1?"s":"")+" with Gemini… (about 20–60 seconds)");
+  try{
+    const d=await aiPost("/api/ai/background",{prompt,count,ref:fr?fr.url:undefined});
+    aiItems=d.items;
+    $("aiPanel").innerHTML='<div class="bk-group"><span class="lbl">Pick one</span><div class="bk-opts">'+
+      aiItems.map((it,i)=>`<label class="bk-opt bgthumb"><input type="radio" name="ai-pick" value="${i}" ${i===0?"checked":""}><span class="thumb" style="background-image:url('${it.url}')"></span>${it.label}</label>`).join("")+
+      '</div></div><label class="chk"><input type="checkbox" id="aiSoft"> Soften it (light blur)</label><div class="row"><button type="button" class="rec" id="aiApply">Use as background</button><button type="button" id="aiMore">Try again</button></div>';
+    $("aiPanel").hidden=false;
+    $("aiApply").onclick=async()=>{
+      const it=aiItems[+(($("aiPanel").querySelector("input[name=ai-pick]:checked")||{}).value||0)];
+      try{await putFile("fBg",$("aiSoft").checked?it.soft_url:it.url,"ai-background.jpg");aiSay("Background applied. Use Darken background under Brand if the text needs more contrast.","ok");}
+      catch(e){aiSay("Couldn't apply it: "+(e.message||e),"err");}
+    };
+    $("aiMore").onclick=()=>$("aiGo").click();
+    aiSay("Here "+(aiItems.length>1?"are your options":"it is")+". Pick one and click Use as background.","ok");
+  }catch(e){aiSay(e.message||"Couldn't generate a background.","err");if(e.code==="ai_not_connected"||e.code==="ai_bad_key")aiConnectPrompt();}
+  finally{b.disabled=false;}
+};
+fetch("/api/ai/status",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{aiConnected=!!d.connected;aiSync();})
+  .catch(()=>{$("aiBox").hidden=true;});
+aiSync();
 })();
 </script>
 </body>
