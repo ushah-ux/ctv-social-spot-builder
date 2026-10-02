@@ -46,7 +46,7 @@ The builder can create a **tracked QR code** in our QR Code Generator PRO accoun
 **Connect once:** in the **QR card**, click **Connect account**, paste the API key from [QR Code Generator › Account Settings › API](https://app.qr-code-generator.com/api/) and click **Connect**. The key is saved only on your Mac.
 
 **For each spot:**
-1. In **Scan tracking**, enter where the QR code should go (e.g. the store-locator page) and a name for it.
+1. In **QR tracking**, choose **Tracked (counts scans)**, then enter where the QR code should go (e.g. the store-locator page) and a name for it.
 2. Leave **Add UTM tags** on, so the brand's own analytics can also see these visits.
 3. Click **Create tracked QR**. The QR code in the spot now uses a `qrco.de` short link that counts each scan, then opens your page.
 4. **Scan the QR code with your phone** to test it before exporting.
@@ -54,6 +54,8 @@ The builder can create a **tracked QR code** in our QR Code Generator PRO accoun
 The scan count (total and unique) shows in the QR card. Click **Refresh** to update it. Full statistics (times, locations, devices, CSV export) are in your QR Code Generator dashboard under the code's **Details › Show full statistics**.
 
 Each tracked code uses one of the account's dynamic QR codes, so make one per spot, not per draft.
+
+**Static + UTM (no scan count):** choose **Static + UTM** instead to make a regular QR code with UTM tags (`utm_source=ctv`, `utm_medium=qr`, `utm_campaign=<campaign name>`). It's free and unlimited and needs no account, but QR Code Generator can't count scans of static codes. Visits from it show up in the **brand's website analytics** instead (e.g. Google Analytics, filtered by that campaign). Use it for spots that don't need scan reporting.
 
 ## Updating and removing
 

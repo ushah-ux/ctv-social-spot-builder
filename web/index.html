@@ -256,10 +256,15 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
         </div>
         <label class="f" id="qrUrlWrap"><span>QR link</span><input type="url" id="qrUrl" data-k="qrUrl" placeholder="https://"></label>
         <div class="track" id="qrTrack" hidden>
-          <div class="track-head"><span class="lbl">Scan tracking · QR Code Generator</span><button type="button" class="linkbtn" id="qtConnect">Connect account</button></div>
+          <div class="track-head"><span class="lbl">QR tracking</span><button type="button" class="linkbtn" id="qtConnect">Connect account</button></div>
           <div id="qtNew" class="track-body">
+            <div class="seg" role="group" aria-label="QR type">
+              <button type="button" id="qtModeDyn" aria-pressed="true">Tracked (counts scans)</button>
+              <button type="button" id="qtModeStatic" aria-pressed="false">Static + UTM</button>
+            </div>
+            <p class="hint" id="qtModeHint">Uses one of the account's dynamic codes. Scan counts show here and in QR Code Generator.</p>
             <label class="f"><span>Where the QR code should go</span><input type="url" id="qtDest" placeholder="https://www.example.com/stores"></label>
-            <label class="f"><span>Name in your QR Code Generator account</span><input type="text" id="qtTitle" maxlength="150" placeholder="Brand – campaign – CTV spot"></label>
+            <label class="f" id="qtTitleWrap"><span>Name in your QR Code Generator account</span><input type="text" id="qtTitle" maxlength="150" placeholder="Brand – campaign – CTV spot"></label>
             <label class="chk"><input type="checkbox" id="qtUtm" checked> Add UTM tags so the brand's analytics can see these visits</label>
             <div class="row"><button type="button" class="rec" id="qtCreate">Create tracked QR</button></div>
           </div>
@@ -741,7 +746,7 @@ $("pbStats").onclick=async()=>{
 const $=id=>document.getElementById(id);
 const REC_KEY="ctv-qrcg-v1";
 const box=$("qrTrack"), st=$("qtStatus"), dlg=$("qtDlg");
-let connected=false, forceNew=false;
+let connected=false, forceNew=false, helperOk=false, mode="dyn";
 function say(el,msg,cls){el.textContent=msg;el.className="status"+(cls?" "+cls:"");}
 function loadRec(){try{return JSON.parse(localStorage.getItem(REC_KEY)||"null");}catch(e){return null;}}
 function saveRec(r){try{localStorage.setItem(REC_KEY,JSON.stringify(r));}catch(e){}}
@@ -782,6 +787,20 @@ async function refreshScans(){
 }
 function connectPrompt(){$("qtKey").value="";$("qtForget").hidden=!connected;say($("qtKeyStatus"),"");dlg.showModal();$("qtKey").focus();}
 
+function setMode(m){
+  mode=m;
+  $("qtModeDyn").setAttribute("aria-pressed",m==="dyn");$("qtModeStatic").setAttribute("aria-pressed",m==="static");
+  $("qtModeHint").textContent=m==="dyn"
+    ?(helperOk?"Uses one of the account's dynamic codes. Scan counts show here and in QR Code Generator.":"Needs the builder installed on your Mac (see the GitHub repo). Static + UTM works here.")
+    :"Free and unlimited. No scan count: visits from the QR code show in the brand's website analytics (e.g. Google Analytics) under the UTM campaign name.";
+  $("qtTitleWrap").querySelector("span").textContent=m==="dyn"?"Name in your QR Code Generator account":"Campaign name (used for the UTM tag)";
+  $("qtCreate").textContent=m==="dyn"?"Create tracked QR":"Make static QR";
+  $("qtCreate").disabled=m==="dyn"&&!helperOk;
+  $("qtUtm").checked=m==="static"?true:$("qtUtm").checked;
+  say(st,"");
+}
+$("qtModeDyn").onclick=()=>setMode("dyn");
+$("qtModeStatic").onclick=()=>setMode("static");
 $("qtConnect").onclick=connectPrompt;
 dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close();});
 $("qtSave").onclick=async()=>{
@@ -794,11 +813,18 @@ $("qtSave").onclick=async()=>{
 $("qtForget").onclick=async()=>{try{await post("/api/qr/forget");}catch(e){}connected=false;say($("qtKeyStatus"),"Disconnected. The key was removed from this Mac.","ok");$("qtForget").hidden=true;render();};
 
 $("qtCreate").onclick=async()=>{
-  if(!connected){connectPrompt();return;}
+  if(mode==="dyn"&&!connected){connectPrompt();return;}
   let dest=$("qtDest").value.trim(), title=$("qtTitle").value.trim()||"CTV spot";
   if(!/^https?:\/\//.test(dest)){say(st,"Enter the full link the QR code should open (starting with https://).","err");return;}
   if(isShortLink(dest)){say(st,"That's already a short or tracking link. Enter the real destination page instead.","err");return;}
   try{if($("qtUtm").checked)dest=withUtm(dest,title);}catch(e){say(st,"That link doesn't look valid.","err");return;}
+  if(mode==="static"){
+    $("qGen").click();
+    const q=$("qrUrl");q.value=dest;q.dispatchEvent(new Event("input",{bubbles:true}));
+    const camp=(()=>{try{return new URL(dest).searchParams.get("utm_campaign");}catch(e){return null;}})();
+    say(st,"Done. The spot now has a static QR code"+(camp?" tagged with campaign \u201c"+camp+"\u201d. Ask the brand for visits from utm_source=ctv, utm_medium=qr in their website analytics.":" with no tracking.")+" Scan it with your phone to test.","ok");
+    return;
+  }
   const b=$("qtCreate");b.disabled=true;say(st,"Creating a tracked QR code in your account…");
   try{
     const rec=await post("/api/qr/create",{url:dest,title});
@@ -815,7 +841,9 @@ $("qtAgain").onclick=()=>{forceNew=true;$("qtTitle").value="";render();say(st,""
 $("qrUrl").addEventListener("input",render);
 document.addEventListener("click",e=>{if(e.target&&(e.target.id==="qGen"||e.target.id==="qUp"||e.target.id==="btnReset"))setTimeout(render,0);});
 
-get("/api/qr/status").then(d=>{connected=!!d.connected;box.hidden=false;render();if(loadRec()&&!$("qtInfo").hidden&&connected)refreshScans();}).catch(()=>{});
+box.hidden=false;render();setMode("dyn");
+get("/api/qr/status").then(d=>{helperOk=true;connected=!!d.connected;setMode(mode);render();if(loadRec()&&!$("qtInfo").hidden&&connected)refreshScans();})
+  .catch(()=>{helperOk=false;$("qtConnect").hidden=true;setMode("static");});
 })();
 </script>
 </body>
