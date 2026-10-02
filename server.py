@@ -7,6 +7,12 @@ Serves web/ and adds three endpoints the builder uses to pull videos by link:
   POST /api/pull   {url, start?, end?, mute?} -> {id, filename, title, size_bytes, stats, video_url}
   POST /api/stats  {url}      -> {platform, handle, likes, comments, ...}
   GET  /api/video/<id>.mp4    -> the pulled MP4
+  QR tracking (QR Code Generator PRO, see qrcg.py):
+  GET  /api/qr/status         -> {connected}
+  POST /api/qr/key  {key}     -> save + validate the API key (stored on this Mac only)
+  POST /api/qr/forget         -> remove the saved key
+  POST /api/qr/create {url, title} -> {id, shortUrl, title, url}
+  GET  /api/qr/scans/<id>     -> {total, unique}
 
 Listens on 127.0.0.1 only. Run with ./start.sh (or: python server.py).
 """
@@ -22,6 +28,8 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import qrcg
+
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 CACHE = ROOT / "cache"
@@ -29,6 +37,7 @@ PULLER = ROOT / "puller" / "pull_video.py"
 PORT = int(os.environ.get("PORT", "8765"))
 
 ID_RE = re.compile(r"^v-[0-9-]{1,40}$")
+QR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 TS_RE = re.compile(r"^\d{1,2}(:\d{1,2}){0,2}(\.\d+)?$")
 LOCAL_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 _lock = threading.Lock()
@@ -135,6 +144,16 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/health":
             return self._json(200, {"ok": True})
+        if self.path == "/api/qr/status":
+            return self._json(200, {"connected": qrcg.connected()})
+        m = re.fullmatch(r"/api/qr/scans/([^/]+)", self.path)
+        if m:
+            if not QR_ID_RE.match(m.group(1)):
+                return self._json(400, {"code": "bad_request", "message": "Unknown QR code."})
+            try:
+                return self._json(200, qrcg.scans(m.group(1)))
+            except qrcg.QrcgError as e:
+                return self._json(502, {"code": e.code, "message": str(e)})
         m = re.fullmatch(r"/api/video/([^/]+)\.mp4", self.path)
         if m:
             vid = m.group(1)
@@ -166,7 +185,19 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, pull(body))
             if self.path == "/api/stats":
                 return self._json(200, stats(body))
+            if self.path == "/api/qr/key":
+                qrcg.save_key(body.get("key"))
+                return self._json(200, {"connected": True})
+            if self.path == "/api/qr/forget":
+                qrcg.forget_key()
+                return self._json(200, {"connected": False})
+            if self.path == "/api/qr/create":
+                url = check_url(body.get("url"))
+                title = body.get("title") if isinstance(body.get("title"), str) else ""
+                return self._json(200, qrcg.create(url, title.strip() or "CTV spot"))
             return self._json(404, {"code": "not_found", "message": "Unknown endpoint."})
+        except qrcg.QrcgError as e:
+            return self._json(400 if e.code == "bad_request" else 502, {"code": e.code, "message": str(e)})
         except PullError as e:
             return self._json(400 if e.code == "bad_request" else 502, {"code": e.code, "message": str(e)})
         except subprocess.TimeoutExpired:

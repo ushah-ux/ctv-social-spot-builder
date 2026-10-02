@@ -110,6 +110,23 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
 .cmd code{flex:1;min-width:0;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .cmd .copy{padding:5px 12px;font-size:11.5px}
 #btnLinkHelp{align-self:flex-start}
+.track{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--lead);border-radius:var(--r-s);padding:12px;background:var(--sunk)}
+.track-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.track-body{display:flex;flex-direction:column;gap:10px}
+.track-body .row>button{flex:0 0 auto}
+.track-line{margin:0;font-size:12.5px;overflow-wrap:anywhere}
+.track-line a{color:var(--link);font-weight:600}
+.track-stats{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.track-stats b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.track-stats span{font-size:12px;color:var(--muted);margin-right:10px}
+.track-stats button{margin-left:auto;padding:5px 12px;font-size:11.5px}
+dialog#qtDlg{width:min(480px,calc(100vw - 32px));border:0;border-radius:var(--r);background:var(--panel);color:var(--fg);box-shadow:0 18px 50px rgba(18,30,51,.35);padding:22px 22px 18px;font:14px/1.5 var(--f-ui)}
+dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
+#qtDlg h2{margin:0 36px 6px 0;font-size:18px;font-weight:700}
+#qtDlg ol{margin:10px 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+#qtDlg a{color:var(--link)}
+#qtDlg input{margin-top:6px}
+
 .pullbox{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--lead);border-radius:var(--r-s);padding:12px;background:var(--sunk)}
 .pullbox .row>button{flex:0 0 auto}
 
@@ -238,6 +255,21 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
           <button type="button" id="qUp" aria-pressed="false">Upload QR image</button>
         </div>
         <label class="f" id="qrUrlWrap"><span>QR link</span><input type="url" id="qrUrl" data-k="qrUrl" placeholder="https://"></label>
+        <div class="track" id="qrTrack" hidden>
+          <div class="track-head"><span class="lbl">Scan tracking · QR Code Generator</span><button type="button" class="linkbtn" id="qtConnect">Connect account</button></div>
+          <div id="qtNew" class="track-body">
+            <label class="f"><span>Where the QR code should go</span><input type="url" id="qtDest" placeholder="https://www.example.com/stores"></label>
+            <label class="f"><span>Name in your QR Code Generator account</span><input type="text" id="qtTitle" maxlength="150" placeholder="Brand – campaign – CTV spot"></label>
+            <label class="chk"><input type="checkbox" id="qtUtm" checked> Add UTM tags so the brand's analytics can see these visits</label>
+            <div class="row"><button type="button" class="rec" id="qtCreate">Create tracked QR</button></div>
+          </div>
+          <div id="qtInfo" class="track-body" hidden>
+            <p class="track-line">Tracking with <a id="qtShort" target="_blank" rel="noopener"></a> → <span id="qtDestShow"></span></p>
+            <div class="track-stats"><b id="qtScans">–</b><span>scans</span><b id="qtUnique">–</b><span>unique</span><button type="button" id="qtRefresh">Refresh</button></div>
+            <button type="button" class="linkbtn" id="qtAgain">Make a new tracked QR</button>
+          </div>
+          <p class="status" id="qtStatus" role="status"></p>
+        </div>
         <label class="file" id="qrFileWrap" hidden><input type="file" id="fQr" accept="image/*"><span class="t">QR image</span><span class="s" id="fQrName">PNG or JPG</span></label>
         <p class="status" id="qrStatus"></p>
         <label class="f"><span>Card text (one line per row)</span><textarea id="cta" data-k="cta" rows="3"></textarea></label>
@@ -296,6 +328,19 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
     <li><b>Rate-limited:</b> wait a few minutes and try again, or save the video from the post yourself and upload it.</li>
   </ul>
   <p class="hint">Only use videos you own or have permission to use.</p>
+</dialog>
+<dialog id="qtDlg" aria-labelledby="qtDlgTitle">
+  <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
+  <h2 id="qtDlgTitle">Connect QR Code Generator</h2>
+  <p class="hint">Lets the builder create tracked (dynamic) QR codes in your QR Code Generator PRO account and show their scan counts. Needs a plan with API access.</p>
+  <ol>
+    <li>Open <a href="https://app.qr-code-generator.com/api/" target="_blank" rel="noopener">Account Settings › API</a> and copy your API key.</li>
+    <li>Paste it here:
+      <input type="password" id="qtKey" autocomplete="off" spellcheck="false" placeholder="API key"></li>
+  </ol>
+  <div class="row"><button type="button" class="rec" id="qtSave">Connect</button><button type="button" id="qtForget" hidden>Disconnect</button></div>
+  <p class="status" id="qtKeyStatus" role="status"></p>
+  <p class="hint">The key is saved only on this Mac (in your user folder) and is never shown in the page again.</p>
 </dialog>
 <video id="vid" playsinline muted loop hidden></video>
 
@@ -688,6 +733,89 @@ $("pbStats").onclick=async()=>{
   catch(e){say(errMsg(e),"err");helpLink();}
   finally{b.disabled=false;}
 };
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const REC_KEY="ctv-qrcg-v1";
+const box=$("qrTrack"), st=$("qtStatus"), dlg=$("qtDlg");
+let connected=false, forceNew=false;
+function say(el,msg,cls){el.textContent=msg;el.className="status"+(cls?" "+cls:"");}
+function loadRec(){try{return JSON.parse(localStorage.getItem(REC_KEY)||"null");}catch(e){return null;}}
+function saveRec(r){try{localStorage.setItem(REC_KEY,JSON.stringify(r));}catch(e){}}
+async function get(path){const r=await fetch(path,{cache:"no-store"});const d=await r.json().catch(()=>({}));if(!r.ok)throw d;return d;}
+async function post(path,body){
+  let r;try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});}
+  catch(e){throw {code:"offline",message:"The local helper isn't running."};}
+  const d=await r.json().catch(()=>({message:"Unexpected reply from the helper."}));if(!r.ok)throw d;return d;
+}
+function slug(t){return t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60);}
+function withUtm(url,title){
+  const u=new URL(url);
+  if(!u.searchParams.has("utm_source"))u.searchParams.set("utm_source","ctv");
+  if(!u.searchParams.has("utm_medium"))u.searchParams.set("utm_medium","qr");
+  if(!u.searchParams.has("utm_campaign")&&slug(title))u.searchParams.set("utm_campaign",slug(title));
+  return u.toString();
+}
+function isShortLink(url){return /^https?:\/\/(qrco\.de|q-r\.to|bit\.ly|qr\.codes)\//i.test(url);}
+
+/* which view: the tracked code currently in the spot, or the "create" form */
+function render(){
+  const rec=loadRec(), cur=$("qrUrl").value.trim();
+  $("qtConnect").textContent=connected?"Account connected":"Connect account";
+  const active=!forceNew&&rec&&rec.shortUrl===cur;
+  $("qtInfo").hidden=!active;$("qtNew").hidden=!!active;
+  if(active){
+    $("qtShort").textContent=rec.shortUrl.replace(/^https?:\/\//,"");$("qtShort").href=rec.shortUrl;
+    $("qtDestShow").textContent=rec.url.replace(/^https?:\/\//,"").replace(/\?.*$/,"")+(rec.url.includes("?")?" (+ UTM tags)":"");
+  }else if(!$("qtDest").value&&cur&&!isShortLink(cur)){$("qtDest").value=cur;}
+  if(!$("qtTitle").value){const h=$("handle").value.trim().replace(/^@/,"");$("qtTitle").value=(h?h+" – ":"")+"CTV spot "+new Date().toISOString().slice(0,10);}
+}
+async function refreshScans(){
+  const rec=loadRec();if(!rec)return;
+  const b=$("qtRefresh");b.disabled=true;say(st,"Checking scans…");
+  try{const sc=await get("/api/qr/scans/"+encodeURIComponent(rec.id));$("qtScans").textContent=sc.total.toLocaleString("en-US");$("qtUnique").textContent=sc.unique.toLocaleString("en-US");say(st,"Updated "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".");}
+  catch(e){say(st,e.message||"Couldn't read scans.","err");if(e.code==="qr_not_connected"||e.code==="qr_bad_key")connectPrompt();}
+  finally{b.disabled=false;}
+}
+function connectPrompt(){$("qtKey").value="";$("qtForget").hidden=!connected;say($("qtKeyStatus"),"");dlg.showModal();$("qtKey").focus();}
+
+$("qtConnect").onclick=connectPrompt;
+dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close();});
+$("qtSave").onclick=async()=>{
+  const key=$("qtKey").value.trim();if(!key){say($("qtKeyStatus"),"Paste your API key first.","err");return;}
+  const b=$("qtSave");b.disabled=true;say($("qtKeyStatus"),"Checking the key…");
+  try{await post("/api/qr/key",{key});$("qtKey").value="";connected=true;say($("qtKeyStatus"),"Connected.","ok");render();setTimeout(()=>dlg.close(),700);}
+  catch(e){say($("qtKeyStatus"),e.message||"Couldn't connect.","err");}
+  finally{b.disabled=false;}
+};
+$("qtForget").onclick=async()=>{try{await post("/api/qr/forget");}catch(e){}connected=false;say($("qtKeyStatus"),"Disconnected. The key was removed from this Mac.","ok");$("qtForget").hidden=true;render();};
+
+$("qtCreate").onclick=async()=>{
+  if(!connected){connectPrompt();return;}
+  let dest=$("qtDest").value.trim(), title=$("qtTitle").value.trim()||"CTV spot";
+  if(!/^https?:\/\//.test(dest)){say(st,"Enter the full link the QR code should open (starting with https://).","err");return;}
+  if(isShortLink(dest)){say(st,"That's already a short or tracking link. Enter the real destination page instead.","err");return;}
+  try{if($("qtUtm").checked)dest=withUtm(dest,title);}catch(e){say(st,"That link doesn't look valid.","err");return;}
+  const b=$("qtCreate");b.disabled=true;say(st,"Creating a tracked QR code in your account…");
+  try{
+    const rec=await post("/api/qr/create",{url:dest,title});
+    saveRec(rec);forceNew=false;
+    $("qGen").click();
+    const q=$("qrUrl");q.value=rec.shortUrl;q.dispatchEvent(new Event("input",{bubbles:true}));
+    $("qtScans").textContent="0";$("qtUnique").textContent="0";
+    render();say(st,"Done. The QR code in the spot now points to "+rec.shortUrl.replace(/^https?:\/\//,"")+", which counts each scan and then opens your link. Scan it with your phone to test.","ok");
+  }catch(e){say(st,e.message||"Couldn't create the QR code.","err");if(e.code==="qr_not_connected"||e.code==="qr_bad_key")connectPrompt();}
+  finally{b.disabled=false;}
+};
+$("qtRefresh").onclick=refreshScans;
+$("qtAgain").onclick=()=>{forceNew=true;$("qtTitle").value="";render();say(st,"");};
+$("qrUrl").addEventListener("input",render);
+document.addEventListener("click",e=>{if(e.target&&(e.target.id==="qGen"||e.target.id==="qUp"||e.target.id==="btnReset"))setTimeout(render,0);});
+
+get("/api/qr/status").then(d=>{connected=!!d.connected;box.hidden=false;render();if(loadRec()&&!$("qtInfo").hidden&&connected)refreshScans();}).catch(()=>{});
 })();
 </script>
 </body>

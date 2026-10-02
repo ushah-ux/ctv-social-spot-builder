@@ -39,6 +39,22 @@ The builder opens in your browser at **http://localhost:8765**. **Bookmark that 
 
 Only use videos you own or have permission to use.
 
+## Tracking QR code scans
+
+The builder can create a **tracked QR code** in our QR Code Generator PRO account, so you can see how many people scanned the spot.
+
+**Connect once:** in the **QR card**, click **Connect account**, paste the API key from [QR Code Generator › Account Settings › API](https://app.qr-code-generator.com/api/) and click **Connect**. The key is saved only on your Mac.
+
+**For each spot:**
+1. In **Scan tracking**, enter where the QR code should go (e.g. the store-locator page) and a name for it.
+2. Leave **Add UTM tags** on, so the brand's own analytics can also see these visits.
+3. Click **Create tracked QR**. The QR code in the spot now uses a `qrco.de` short link that counts each scan, then opens your page.
+4. **Scan the QR code with your phone** to test it before exporting.
+
+The scan count (total and unique) shows in the QR card. Click **Refresh** to update it. Full statistics (times, locations, devices, CSV export) are in your QR Code Generator dashboard under the code's **Details › Show full statistics**.
+
+Each tracked code uses one of the account's dynamic QR codes, so make one per spot, not per draft.
+
 ## Updating and removing
 
 - **Update:** download the newest ZIP (step 1) and double-click **Install Spot Builder.command** again.
@@ -57,6 +73,7 @@ Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the instal
 |---|---|
 | `web/index.html` | The builder: a single page, no build step. Canvas preview, layer controls, MediaRecorder export. |
 | `server.py` | Local helper (Python standard library). Serves `web/` and adds `/api/pull`, `/api/stats` and `/api/video/<id>.mp4`. Listens on `127.0.0.1` only and refuses cross-site requests. |
+| `qrcg.py` | Client for the [QR Code Generator PRO API](https://dev.qrcg.com/): creates dynamic URL codes and reads scan totals. The API key lives in `~/.config/ctv-spot-builder/qrcg_api_key` (mode 600), never in the browser. Endpoints: `/api/qr/status`, `/api/qr/key`, `/api/qr/forget`, `/api/qr/create`, `/api/qr/scans/<id>`. |
 | `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. |
 
 Pulled videos are kept in `cache/` (git-ignored) and deleted after a day.
