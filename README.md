@@ -1,29 +1,57 @@
 # CTV Social Spot Builder
 
-Turn a vertical social video into a 16:9 CTV spot: the video plays inside a phone, framed by your brand's background, logo, handle, profile stats and a QR call to action. Edit every layer, then export an MP4 or a PNG still.
+Turn a vertical social video into a 16:9 CTV spot. The video plays inside a phone, framed by your brand's background, logo, handle, profile stats and a QR call to action. Paste an Instagram, Facebook, YouTube or TikTok link and the builder pulls the video **and** fills in the likes, comments, handle and profile counts for you.
 
-Paste an Instagram, Facebook, YouTube or TikTok link and the builder pulls the video **and** fills in likes, comments, handle and (when the platform shares them) profile counts.
+---
 
-## Install once, then just open the link (macOS)
+## 🚀 Get started (Mac, about 5 minutes, one time only)
 
-1. Download the repo: **Code › Download ZIP**, then unzip it.
-2. Double-click **`Install Spot Builder.command`**.
-   If macOS says it can't be opened: right-click it › **Open** › **Open**. On newer macOS, go to **System Settings › Privacy & Security** and click **Open Anyway**.
-3. The builder opens at **http://localhost:8765**. **Bookmark it.**
+**1. Download it**
+Click **[Download the builder (ZIP)](https://github.com/ushah-ux/ctv-social-spot-builder/archive/refs/heads/main.zip)**, then double-click the ZIP in your Downloads folder to unzip it.
 
-That's it. From then on the builder starts by itself whenever you log in, so the bookmark always works. You can delete the downloaded folder; the installer copies what it needs to `~/Library/Application Support/CTV Spot Builder`.
+**2. Install it**
+Open the **ctv-social-spot-builder-main** folder and double-click **Install Spot Builder.command**.
 
-- **Update:** download the newest version and double-click the installer again.
-- **Remove:** double-click **`Uninstall Spot Builder.command`**.
-- **Needs Python 3.10+.** If it's missing, the installer opens the download page for you.
+> **macOS says it "can't be opened"?** That's normal the first time. Right-click the file › **Open** › **Open**.
+> On newer macOS: open **System Settings › Privacy & Security**, scroll down and click **Open Anyway**.
 
-### Run it only when you want it
+A Terminal window shows the progress (about a minute). If it says you need Python, it opens the download page: install Python, then double-click the installer again.
 
-Prefer not to have it running in the background? Double-click **`Start Spot Builder.command`** instead (or run `bash start.sh`). It runs while its Terminal window is open.
+**3. Bookmark it**
+The builder opens in your browser at **http://localhost:8765**. **Bookmark that page.** That's your builder from now on.
 
-Needs Python 3.10+ ([python.org/downloads/macos](https://www.python.org/downloads/macos/)) and a current Chrome, Edge or Safari.
+✅ **Done.** You never have to do this again. The builder starts by itself whenever you log in to your Mac, so the bookmark always works. You can delete the downloaded folder.
 
-## How it works
+---
+
+## Using it
+
+1. Open your bookmark (**http://localhost:8765**).
+2. Paste a post's link into **Pull from a link** and click **Pull video + stats**. Or upload a video file yourself with **Upload vertical video**.
+3. Adjust the layers, then click **Export video**.
+
+**If a pull is blocked**
+- **The post needs a login:** log in to Instagram or Facebook in **Safari**. The builder uses your Safari login automatically.
+- **"macOS is blocking it":** open **System Settings › Privacy & Security › Full Disk Access**, click **+**, and add the Python app the installer showed you (usually in `/Library/Frameworks/Python.framework/Versions/…/Resources/Python.app`). Then double-click the installer again.
+- **Private post:** only works if your Safari login can see it.
+- **Some stats stay empty:** Instagram only shares profile counts (posts, followers, following) with a login, and shares are rarely available on any platform. Anything missing keeps its current value, so you can type it in.
+- **Rate-limited:** wait a few minutes and try again, or save the video yourself and upload it.
+
+Only use videos you own or have permission to use.
+
+## Updating and removing
+
+- **Update:** download the newest ZIP (step 1) and double-click **Install Spot Builder.command** again.
+- **Remove:** double-click **Uninstall Spot Builder.command**.
+- **Don't want it running in the background?** Skip the installer and double-click **Start Spot Builder.command** whenever you need it. It runs while its Terminal window is open.
+
+Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the installer checks).
+
+---
+
+## For developers
+
+### How it works
 
 | Piece | What it does |
 |---|---|
@@ -37,23 +65,14 @@ Pulled videos are kept in `cache/` (git-ignored) and deleted after a day.
 
 `web/index.html` also works as a static page (opened directly, or on GitHub Pages or any web host). Everything except **Pull from a link** works there. Users upload their video file instead, and the **Pull not working? Help** pop-up explains how to start the helper.
 
-## Instagram and Facebook
-
-- Public posts usually download without a login.
-- If a post needs one, the puller automatically retries with your **Safari** login. Be logged in to Instagram/Facebook in Safari.
-- macOS blocks reading Safari's cookies until you allow it, in **System Settings › Privacy & Security › Full Disk Access**:
-  - **Installed version:** click **+** and add the Python app the installer showed you (usually `/Library/Frameworks/Python.framework/Versions/3.x/Resources/Python.app`), then run the installer again.
-  - **Start Spot Builder / start.sh:** turn on **Terminal**, then start it again.
-- Instagram profile counts (posts, followers, following) need that login too. Shares are rarely shared by any platform. Anything missing stays as it was, so you can type it in.
-
-## Command line
+### Command line
 
 ```bash
 .venv/bin/python puller/pull_video.py "https://www.instagram.com/reel/XXXX/" --end 0:15
 .venv/bin/python puller/pull_video.py "https://www.instagram.com/reel/XXXX/" --stats-only
 ```
 
-Videos are saved to `~/Downloads/Video Puller/`. Run with `--help` for trimming, muting and size options.
+Videos are saved to `~/Downloads/Video Puller/`. Set up the environment first with `bash start.sh`, which also runs the builder on demand. Run with `--help` for trimming, muting and size options.
 
 ## Notes
 
