@@ -247,6 +247,11 @@ def site_images(site: str) -> dict:
         pass
     absu = lambda u: urllib.parse.urljoin(site, u.strip())
     logos = _jsonld_logos(p.jsonld) + [u for _, u in sorted(p.logos, key=lambda t: -t[0])]
+    text = html.decode("utf-8", "replace").replace("\\/", "/")
+    for m in re.finditer(r'(?:https?:)?//?[^\s"\'()<>]*logo[^\s"\'()<>]*?\.(?:svg|png|webp)(?:\?[^\s"\'()<>]*)?', text, re.I):
+        u = m.group(0)
+        if not re.search(r"(facebook|instagram|twitter|tiktok|youtube|pinterest|visa|mastercard|amex|paypal|klarna|affirm)", u, re.I):
+            logos.append(u)
     icons = [u for _, u in sorted(p.icons, key=lambda t: -t[0])]
     dedupe = lambda xs: list(dict.fromkeys(absu(x) for x in xs if x and not x.startswith("data:")))
     return {"logos": dedupe(logos)[:3], "icons": dedupe(icons)[:1], "og": dedupe(p.og)[:1], "svgs": p.svgs[:2]}
@@ -268,58 +273,148 @@ def _youtube_channel(info: dict) -> dict:
     return {"pic": thumbs.get("avatar_uncropped"), "banner": thumbs.get("banner_uncropped")}
 
 
+SOCIAL = re.compile(r"(instagram|facebook|fb\.me|tiktok|youtube|youtu\.be|twitter|x\.com|threads\.net|pinterest|"
+                    r"linkedin|snapchat|linktr\.ee|lnk\.bio|beacons\.ai|bit\.ly|tinyurl|t\.co/|apple\.com/app|"
+                    r"apps\.apple|play\.google)", re.I)
+
+
+def _page_meta(url: str) -> dict:
+    """og:image / og:title / og:site_name / description of any public page."""
+    try:
+        raw, _ = _get(url, MAX_HTML)
+    except Exception:
+        return {}
+    import html as htmllib
+    page = raw.decode("utf-8", "replace")
+    out = {}
+    for key in ("og:image", "og:title", "og:site_name", "description", "og:description"):
+        m = (re.search(rf'<meta[^>]+(?:property|name)="{key}"[^>]*content="([^"]*)"', page, re.I)
+             or re.search(rf'<meta[^>]+content="([^"]*)"[^>]*(?:property|name)="{key}"', page, re.I))
+        if m:
+            out[key] = htmllib.unescape(m.group(1)).strip()
+    m = re.search(r"<title[^>]*>([^<]{1,200})</title>", page, re.I)
+    if m:
+        out["title"] = htmllib.unescape(m.group(1)).strip()
+    return out
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (text or "").lower().replace("&", "and"))
+
+
+def find_website(name: str | None, handle: str | None, texts: list[str]) -> str | None:
+    """The brand's website: a link in the bio/caption/description, else a checked guess
+    from the brand name or handle (e.g. "Bed Bath & Beyond" -> bedbathandbeyond.com)."""
+    for t in texts:
+        for u in re.findall(r"(?:https?://)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:/[^\s)\]]*)?", t or "", re.I):
+            if SOCIAL.search(u) or "@" in u or not re.search(r"\.(com|net|org|co|us|io|shop|store|ca|uk|au)\b", u, re.I):
+                continue
+            url = u if u.startswith("http") else "https://" + u
+            if _page_meta(url):
+                return url
+
+    base = _compact(name)
+    h = _compact((handle or "").lstrip("@"))
+    guesses = []
+    for c in (base, h, re.sub(r"(official|home|hq|usa|us|inc|co|shop|store|brand|global)$", "", h)):
+        if c and len(c) >= 3 and c not in guesses:
+            guesses.append(c)
+    words = [w for w in re.split(r"[^a-z0-9]+", (name or "").lower().replace("&", " ")) if len(w) > 2]
+    for g in guesses:
+        url = f"https://www.{g}.com/"
+        meta = _page_meta(url)
+        if not meta:
+            continue
+        label = _compact(" ".join([meta.get("og:site_name", ""), meta.get("og:title", ""), meta.get("title", "")]))
+        # accept when the site's own title mentions the brand (or the name maps exactly onto the domain)
+        if g == base or (words and sum(w in label for w in words) >= max(1, len(words) // 2)) or (h and h in label):
+            return url
+    return None
+
+
+def _host(url: str) -> str:
+    return urllib.parse.urlparse(url).hostname.removeprefix("www.") if url else ""
+
+
 def brand_kit(url: str, out: Path, site: str | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     info = pv.fetch_info(url)
     stats = pv.social_stats(info)
     site_key = (info.get("extractor_key") or "").lower()
+    name, handle = stats.get("name"), stats.get("handle")
 
     pic = banner = None
-    if "instagram" in site_key and stats.get("handle"):
-        prof = pv.instagram_profile(stats["handle"].lstrip("@"))
-        pic, site = prof.get("_pic"), site or prof.get("_site")
+    texts = [info.get("description") or ""]
+    if "instagram" in site_key and handle:
+        prof = pv.instagram_profile(handle.lstrip("@"))
+        pic = prof.get("_pic")
+        name = prof.get("_name") or name
+        site = site or prof.get("_site")
+        texts.insert(0, prof.get("_bio") or "")
     elif "youtube" in site_key:
         ch = _youtube_channel(info)
         pic, banner = ch.get("pic"), ch.get("banner")
+    else:  # TikTok, Facebook, others: read the account page's share tags
+        for page in (info.get("uploader_url"), info.get("channel_url")):
+            if page and (meta := _page_meta(page)):
+                pic = pic or meta.get("og:image")
+                texts.insert(0, meta.get("description") or meta.get("og:description") or "")
+                break
+
+    site = site or find_website(name, handle, texts)
+    # logos live on the brand's homepage, even when the link is a campaign/product page
+    home = None
+    if site:
+        pu = urllib.parse.urlparse(site if "://" in site else "https://" + site)
+        home = f"{pu.scheme}://{pu.hostname}/"
 
     items = []  # {kind: avatar|logo|background, label, file}
 
     def add(kind, label, path):
-        if path and path.exists():
+        if path and path.exists() and not any(i["file"] == path.name and i["kind"] == kind for i in items):
             items.append({"kind": kind, "label": label, "file": path.name})
+
+    # Logos: the website's own logo first (wordmarks), then the profile picture, then the site icon
+    icon = None
+    if home:
+        imgs = site_images(home)
+        if not (imgs["logos"] or imgs["svgs"]) and site != home:
+            imgs = site_images(site)
+        where = _host(home)
+        n = 0
+        for u in imgs["logos"]:
+            if n >= 3:
+                break
+            if (p := _save_image(u, out, "logo")) and (p := _to_png(p)):
+                n += 1
+                add("logo", f"Logo from {where}" + (f" ({n})" if n > 1 else ""), p)
+        for markup in imgs["svgs"]:
+            if n >= 4:
+                break
+            if (p := _save_svg(markup, out)):
+                n += 1
+                add("logo", f"Logo from {where}" + (f" ({n})" if n > 1 else ""), p)
+        for u in imgs["icons"]:
+            if (p := _save_image(u, out, "icon")):
+                icon = _to_png(p)
+        for u in imgs["og"]:
+            if (p := _save_image(u, out, "og")) and (p := _to_png(p)):
+                add("background", f"Image from {where}, blurred", _blurred_bg(p))
 
     if pic and (p := _save_image(pic, out, "pic")):
         p = _to_png(p)
+        small = "s100x100" in pic or "s150x150" in pic
         add("avatar", "Profile picture", p)
-        add("logo", "Profile picture", p)
-
-    if site:
-        imgs = site_images(site)
-        for i, u in enumerate(imgs["logos"]):
-            if (p := _save_image(u, out, "logo")):
-                add("logo", "Logo from website" + (f" ({i + 1})" if i else ""), _to_png(p))
-        for i, markup in enumerate(imgs["svgs"]):
-            if (p := _save_svg(markup, out)):
-                add("logo", "Logo from website" + (" (drawn)" if not imgs["logos"] and i == 0 else f" ({len(imgs['logos']) + i + 1})"), p)
-        for u in imgs["icons"]:
-            if (p := _save_image(u, out, "icon")):
-                add("logo", "Website icon", _to_png(p))
-        for u in imgs["og"]:
-            if (p := _save_image(u, out, "og")) and (p := _to_png(p)):
-                add("background", "Website image, blurred", _blurred_bg(p))
+        add("logo", "Profile picture" + (" (small)" if small else ""), p)
+    if icon:
+        add("logo", "Website icon", icon)
 
     if info.get("thumbnail") and (p := _save_image(info["thumbnail"], out, "thumb")) and (p := _to_png(p)):
         add("background", "Video frame, blurred", _blurred_bg(p))
     if banner and (p := _save_image(banner, out, "banner")) and (p := _to_png(p)):
         add("background", "Channel banner, blurred", _blurred_bg(p))
 
-    return {
-        "handle": stats.get("handle"),
-        "name": stats.get("name"),
-        "platform": stats.get("platform"),
-        "site": site,
-        "items": items,
-    }
+    return {"handle": handle, "name": name, "platform": stats.get("platform"), "site": site, "items": items}
 
 
 if __name__ == "__main__":  # used by server.py: brand.py URL OUT_DIR [SITE]

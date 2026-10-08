@@ -193,6 +193,7 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
             <label class="f"><span>Start (optional)</span><input type="text" id="pbStart" placeholder="0:00"></label>
             <label class="f"><span>End (optional)</span><input type="text" id="pbEnd" placeholder="0:15"></label>
           </div>
+          <label class="chk"><input type="checkbox" id="bkAuto" checked> Also pull the brand's logo, colour, background and website</label>
           <div class="row"><button type="button" class="rec" id="pbGo">Pull video + stats</button><button type="button" id="pbStats">Fill stats only</button></div>
           <details class="brandopt">
             <summary>Brand look <span class="tag">Logo · background</span></summary>
@@ -216,6 +217,7 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
           </details>
           <div class="prog" aria-hidden="true"><i id="pbBar"></i></div>
           <p class="status" id="pbStatus" role="status"></p>
+          <p class="status" id="bkStatus" role="status"></p>
         </div>
         <button type="button" id="btnLinkHelp">Get a video from an Instagram or Facebook link</button>
         <div class="row">
@@ -776,6 +778,7 @@ go.onclick=async()=>{
   const start=$("pbStart").value.trim(), end=$("pbEnd").value.trim();
   if((start&&!TS.test(start))||(end&&!TS.test(end))){say("Write times like 0:05 or 1:20.","err");return;}
   go.disabled=true;bar.style.width="15%";say("Pulling the video. This can take up to a minute…");
+  if($("bkAuto").checked)document.dispatchEvent(new CustomEvent("spot:pull",{detail:{url}}));
   try{
     const info=await api("/api/pull",{url,start:start||undefined,end:end||undefined});
     bar.style.width="70%";say("Loading into the builder…");
@@ -908,7 +911,7 @@ get("/api/qr/status").then(d=>{helperOk=true;connected=!!d.connected;setMode(mod
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const panel=$("bkPanel"), st=$("pbStatus");
+const panel=$("bkPanel"), st=$("bkStatus");
 function say(msg,cls){st.textContent=msg;st.className="status"+(cls?" "+cls:"");}
 function setField(id,val){const el=$(id);if(!el||val==null)return;if(el.type==="checkbox")el.checked=!!val;else el.value=val;el.dispatchEvent(new Event("input",{bubbles:true}));}
 async function putFile(inputId,url,name){
@@ -943,40 +946,86 @@ function group(kind,title,items,cls){
   return `<div class="bk-group"><span class="lbl">${title}</span><div class="bk-opts">${opts}<label class="bk-opt"><input type="radio" name="bk-${kind}" value="keep"><span class="thumb none">Keep current</span>&nbsp;</label></div></div>`;
 }
 let kit=null;
-$("bkGo").onclick=async()=>{
-  const url=$("pbUrl").value.trim();
-  if(!/^https?:\/\//.test(url)){say("Paste the post's link in Pull from a link first.","err");return;}
+const DEFAULT_QR="https://www.kirklands.com/";
+let autoQr=null;
+/* dark logo on a transparent background would vanish on the dark spot: recolour it white */
+function whiteIfDark(url){
+  return new Promise(res=>{
+    const im=new Image();im.onload=()=>{
+      try{
+        let w=im.naturalWidth,h=im.naturalHeight;if(!w||!h)return res({url,white:false});
+        const k=Math.min(1,1600/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
+        const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0,w,h);
+        const img=x.getImageData(0,0,w,h),d=img.data;let clear=0,opaque=0,lum=0;
+        for(let i=0;i<d.length;i+=4){if(d[i+3]<40){clear++;continue;}opaque++;lum+=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255;}
+        const total=w*h;
+        if(!opaque||clear/total<0.15||lum/opaque>0.45)return res({url,white:false});
+        for(let i=0;i<d.length;i+=4){d[i]=d[i+1]=d[i+2]=255;}
+        x.putImageData(img,0,0);
+        c.toBlob(b=>res(b?{url:URL.createObjectURL(b),white:true}:{url,white:false}),"image/png");
+      }catch(e){res({url,white:false});}
+    };im.onerror=()=>res({url,white:false});im.src=url;
+  });
+}
+async function runBrand(url,auto){
   const site=$("bkSite").value.trim();
-  const b=$("bkGo");b.disabled=true;panel.hidden=true;say("Looking for the brand's profile picture, logo and backgrounds… (up to a minute)");
+  const b=$("bkGo");b.disabled=true;panel.hidden=true;
+  say(auto?"Pulling the brand's look at the same time…":"Looking for the brand's logo, profile picture, website and backgrounds… (up to a minute)");
   try{
     const r=await fetch("/api/brand",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,site:site||undefined})});
     const d=await r.json().catch(()=>({message:"Unexpected reply from the helper."}));
     if(!r.ok)throw d;
     kit=d;
+    if(kit.site&&!site)$("bkSite").value=kit.site;
     const by=k=>kit.items.filter(i=>i.kind===k);
     const html=group("logo","Logo",by("logo"))+group("avatar","Avatar (in the phone)",by("avatar"))+group("background","Background",by("background"),"bgthumb");
-    if(!html){say("Couldn't find brand images for that post."+(site?"":" Try adding the brand's website."),"err");return;}
-    const firstLogo=by("logo")[0], colour=firstLogo?await brandColour(firstLogo.url):null;
-    panel.innerHTML=html+(colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
+    if(!html){say("Couldn't find brand images for that post. Add the brand's website under Brand look and click Pull brand look.","err");return;}
+    let colour=null;for(const it of [...by("logo"),...by("avatar")]){if((colour=await brandColour(it.url)))break;}
+    const qrOk=kit.site&&!/qrco\.de|q-r\.to/.test($("qrUrl").value);
+    panel.innerHTML=html+
+      `<label class="chk"><input type="checkbox" id="bkWhite" checked> Make dark logos white (so they show on the dark spot)</label>`+
+      (colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
+      (qrOk?`<label class="chk"><input type="checkbox" id="bkQr" checked> Point the QR code to ${kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")}</label>`:"")+
       `<div class="row"><button type="button" class="rec" id="bkApply">Apply selected</button></div>`;
     panel.dataset.colour=colour||"";
     panel.hidden=false;aiSync();
-    say("Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected."+(by("logo").length&&!by("logo").some(i=>/website/i.test(i.label))?" Tip: add the brand's website to look for its real logo.":""),"ok");
-    $("bkApply").onclick=apply;
+    $("bkApply").onclick=()=>apply(false);
+    // pick the best defaults: first logo, profile picture, blurred video frame (else the first background)
+    const bgs=by("background"),frame=bgs.findIndex(i=>/video frame/i.test(i.label));
+    const bgRadio=panel.querySelectorAll('input[name="bk-background"]')[frame>=0?frame:0];if(bgRadio)bgRadio.checked=true;
+    if(auto){
+      document.querySelector(".brandopt").open=true;
+      await apply(true);
+    }else{
+      say("Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected.","ok");
+    }
   }catch(e){say((e&&e.message)||"Couldn't pull the brand look.","err");}
   finally{b.disabled=false;}
+}
+$("bkGo").onclick=()=>{
+  const url=$("pbUrl").value.trim();
+  if(!/^https?:\/\//.test(url)){say("Paste the post's link in Pull from a link first.","err");return;}
+  runBrand(url,false);
 };
-async function apply(){
+document.addEventListener("spot:pull",e=>runBrand(e.detail.url,true));
+
+async function apply(auto){
   const pick=k=>{const v=(panel.querySelector(`input[name="bk-${k}"]:checked`)||{}).value;if(v==null||v==="keep")return null;return kit.items.filter(i=>i.kind===k)[+v];};
   const done=[];
   try{
     const lg=pick("logo"),av=pick("avatar"),bg=pick("background");
-    const ext=u=>u.split(".").pop();
-    if(lg){await putFile("fLogo",lg.url,"brand-logo."+ext(lg.url));done.push("logo");}
-    if(av){await putFile("fAvatar",av.url,"brand-avatar."+ext(av.url));done.push("avatar");}
+    if(lg){
+      const w=$("bkWhite")&&$("bkWhite").checked?await whiteIfDark(lg.url):{url:lg.url,white:false};
+      await putFile("fLogo",w.url,"brand-logo.png");done.push(w.white?"logo (made white)":"logo");
+    }
+    if(av){await putFile("fAvatar",av.url,"brand-avatar.png");done.push("avatar");}
     if(bg){await putFile("fBg",bg.url,"brand-background.jpg");done.push("background");}
     const cb=$("bkColour");if(cb&&cb.checked&&panel.dataset.colour){setField("accent",panel.dataset.colour);done.push("frame glow colour");}
-    say(done.length?"Applied "+done.join(", ")+". Adjust Logo size and Darken background under Brand if needed.":"Nothing selected, so nothing changed.","ok");
+    const qb=$("bkQr"),cur=$("qrUrl").value.trim();
+    if(qb&&qb.checked&&kit.site&&(cur===DEFAULT_QR||cur===autoQr||!cur||!auto)){
+      $("qGen").click();setField("qrUrl",kit.site);autoQr=kit.site;done.push("QR link");
+    }
+    say(done.length?(auto?"Brand look applied automatically: ":"Applied ")+done.join(", ")+"."+(auto?" To swap anything, open Brand look below.":" Adjust Logo size and Darken background under Brand if needed."):"Nothing selected, so nothing changed.","ok");
   }catch(e){say("Couldn't apply that: "+(e.message||e),"err");}
 }
 

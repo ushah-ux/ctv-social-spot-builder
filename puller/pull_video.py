@@ -113,9 +113,54 @@ def fetch_info(url: str, browser: str | None = None) -> dict:
         return fetch_info(url, "safari")
 
 
+def parse_count(text: str) -> int | None:
+    """'2M' / '12.5K' / '1,234' -> int (Instagram's rounded public counts)."""
+    m = re.fullmatch(r"([\d.,]+)\s*([KMB]?)", (text or "").strip(), re.I)
+    if not m:
+        return None
+    n = float(m.group(1).replace(",", ""))
+    return int(n * {"": 1, "K": 1e3, "M": 1e6, "B": 1e9}[m.group(2).upper()])
+
+
+def instagram_public(username: str) -> dict:
+    """What Instagram's public profile page shows without a login: rounded counts,
+    display name, bio and a small (100px) profile picture."""
+    import html as htmllib
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(f"https://www.instagram.com/{username}/",
+                                     headers={"User-Agent": SAFARI_UA, "Accept-Language": "en-US"})
+        page = urllib.request.urlopen(req, timeout=15).read(2_000_000).decode("utf-8", "replace")
+    except Exception:
+        return {}
+
+    def meta(prop: str) -> str:
+        m = (re.search(rf'<meta[^>]+(?:property|name)="{prop}"[^>]*content="([^"]*)"', page)
+             or re.search(rf'<meta[^>]+content="([^"]*)"[^>]*(?:property|name)="{prop}"', page))
+        return htmllib.unescape(m.group(1)) if m else ""
+
+    out = {}
+    desc = meta("og:description") or meta("description")
+    for key, label in (("followers", "Followers"), ("following", "Following"), ("posts", "Posts")):
+        m = re.search(rf"([\d.,]+\s*[KMB]?)\s+{label}", desc, re.I)
+        if m and (n := parse_count(m.group(1))) is not None:
+            out[key] = n
+    title = meta("og:title")
+    if " (@" in title:
+        out["_name"] = title.split(" (@")[0].strip()
+    if meta("og:image"):
+        out["_pic"] = meta("og:image")
+    bio = meta("description")
+    if ': "' in bio:
+        out["_bio"] = bio.split(': "', 1)[1].rstrip('"')
+    return out
+
+
 def instagram_profile(username: str) -> dict:
-    """Posts / followers / following for an Instagram account. Needs a login, so it
-    tries logged-out first, then your Safari session. Returns {} if it can't."""
+    """Posts / followers / following for an Instagram account. Exact numbers need a
+    login, so it tries logged-out first, then your Safari session, then falls back to
+    the public profile page (rounded counts). Returns {} if all fail."""
     import urllib.request
 
     if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", username):
@@ -150,7 +195,7 @@ def instagram_profile(username: str) -> dict:
             return call({"Cookie": cookie, "X-CSRFToken": csrf})
     except Exception:
         pass
-    return {}
+    return instagram_public(username)
 
 
 def social_stats(info: dict) -> dict:
@@ -183,6 +228,8 @@ def social_stats(info: dict) -> dict:
     if platform == "ig" and handle:
         prof = instagram_profile(handle.lstrip("@"))
         stats.update({k: v for k, v in prof.items() if v is not None and not k.startswith("_")})
+        if prof.get("_name"):
+            stats["name"] = prof["_name"]
     return {k: v for k, v in stats.items() if v is not None}
 
 
