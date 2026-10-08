@@ -257,10 +257,17 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
     <details open>
       <summary>Brand <span class="tag">Background · logo</span></summary>
       <div class="body">
+        <div class="f"><span>Spot theme</span>
+          <div class="seg" role="group" aria-label="Spot theme">
+            <button type="button" id="thDark" aria-pressed="true">Dark</button>
+            <button type="button" id="thLight" aria-pressed="false">Light</button>
+          </div>
+        </div>
         <label class="file"><input type="file" id="fBg" accept="image/*"><span class="t">Background image</span><span class="s" id="fBgName">Blurred store (default)</span></label>
-        <label class="f"><span>Darken background</span><input type="range" id="bgDim" data-k="bgDim" min="0" max="0.8" step="0.01"></label>
+        <label class="f"><span id="bgDimLabel">Darken background</span><input type="range" id="bgDim" data-k="bgDim" min="0" max="0.8" step="0.01"></label>
         <label class="file"><input type="file" id="fLogo" accept="image/png,image/svg+xml,image/webp,image/*"><span class="t">Logo</span><span class="s" id="fLogoName">Kirkland's wordmark (default). Use a transparent PNG.</span></label>
         <label class="f"><span>Logo size</span><input type="range" id="logoScale" data-k="logoScale" min="0.4" max="1.2" step="0.01"></label>
+        <label class="chk"><input type="checkbox" id="logoAuto" data-k="logoAuto"> Recolour the logo to suit the theme (white on Dark, text colour on Light)</label>
         <div class="row">
           <label class="f"><span>Handle</span><input type="text" id="handle" data-k="handle"></label>
         </div>
@@ -418,13 +425,14 @@ const DW=1672, DH=941;
 const DEF={
   zoom:1,panX:0,panY:0,
   showUI:true,showPlayback:true,avatarText:"KH",avatarColor:"#0d3b5e",likeIcon:"thumb",shareIcon:"arrow",likes:"358",comments:"8",shares:"12",
-  bgDim:0,logoScale:1,handle:"@kirklandshome",verified:true,font:"Montserrat",textColor:"#fffdf8",accent:"#ffe8bc",
+  theme:"dark",logoAuto:true,bgDim:0,logoScale:1,handle:"@kirklandshome",verified:true,font:"Montserrat",textColor:"#fffdf8",accent:"#ffe8bc",
   platform:"ig",showSocialIcon:true,followText:"FOLLOW US ON INSTAGRAM",
   s1v:"6,458",s1l:"Posts",s2v:"1.2M",s2l:"Followers",s3v:"366",s3l:"Following",
   qrMode:"gen",qrUrl:"https://www.kirklands.com/",cta:"SCAN THE QR CODE\nTO FIND ALL OUR\nSTORE LOCATIONS",cardColor:"#fcf6ec",ctaColor:"#261e1a",qrColor:"#111111",
   res:"1920x1080",lenMode:"video",secs:15,audio:true
 };
 const FOLLOW={ig:"FOLLOW US ON INSTAGRAM",fb:"FOLLOW US ON FACEBOOK"};
+const THEME_TEXT={dark:"#fffdf8",light:"#1f1b17"};
 const KEY="ctv-spot-builder-v1";
 let S=Object.assign({},DEF);
 try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)Object.assign(S,s);}catch(e){}
@@ -444,6 +452,8 @@ function syncControls(){
     if(el.type==="checkbox")el.checked=!!S[k]; else el.value=S[k];
   });
   $("pIG").setAttribute("aria-pressed",S.platform==="ig");$("pFB").setAttribute("aria-pressed",S.platform==="fb");
+  $("thDark").setAttribute("aria-pressed",S.theme!=="light");$("thLight").setAttribute("aria-pressed",S.theme==="light");
+  $("bgDimLabel").textContent=S.theme==="light"?"Lighten background":"Darken background";
   $("qGen").setAttribute("aria-pressed",S.qrMode==="gen");$("qUp").setAttribute("aria-pressed",S.qrMode==="up");
   $("qrUrlWrap").hidden=S.qrMode!=="gen";$("qrFileWrap").hidden=S.qrMode!=="up";
   $("secs").disabled=S.lenMode!=="custom"&&hasVideo;
@@ -462,6 +472,12 @@ function setPlatform(p){
   if(S.followText===FOLLOW[S.platform])S.followText=FOLLOW[p];
   S.platform=p;syncControls();persist();
 }
+function setTheme(t){
+  if(S.theme===t)return;
+  if((S.textColor||"").toLowerCase()===THEME_TEXT[S.theme==="light"?"light":"dark"])S.textColor=THEME_TEXT[t];  // keep custom colours
+  S.theme=t;syncControls();persist();
+}
+$("thDark").onclick=()=>setTheme("dark");$("thLight").onclick=()=>setTheme("light");
 $("pIG").onclick=()=>setPlatform("ig");$("pFB").onclick=()=>setPlatform("fb");
 $("qGen").onclick=()=>{S.qrMode="gen";syncControls();persist();};
 $("qUp").onclick=()=>{S.qrMode="up";syncControls();persist();};
@@ -552,14 +568,48 @@ function spaced(text,x,y,maxW,weight,size){
   ctx.textAlign="left";let cx=x;for(const ch of text){ctx.fillText(ch,cx,y);cx+=ctx.measureText(ch).width+sp;}
 }
 
+/* ---------- logo recolouring for the theme ---------- */
+// "dark" / "light" for one-colour logos on a transparent background, else "keep" (photos, badges, multicolour)
+function logoTone(img){
+  if(img._tone)return img._tone;
+  let tone="keep";
+  try{
+    const w0=img.naturalWidth,h0=img.naturalHeight;
+    if(w0&&h0){
+      const k2=Math.min(1,400/Math.max(w0,h0)),w=Math.max(1,Math.round(w0*k2)),h=Math.max(1,Math.round(h0*k2));
+      const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);
+      const d=x.getImageData(0,0,w,h).data;let clear=0,n=0,lum=0;
+      for(let i=0;i<d.length;i+=4){if(d[i+3]<40){clear++;continue;}n++;lum+=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255;}
+      if(n&&clear/(w*h)>=0.15){const a=lum/n;tone=a<0.45?"dark":a>0.72?"light":"keep";}
+    }
+  }catch(e){tone="keep";}
+  img._tone=tone;return tone;
+}
+function tinted(img,colour){
+  img._tints=img._tints||{};
+  if(img._tints[colour])return img._tints[colour];
+  const w=img.naturalWidth,h=img.naturalHeight,c=document.createElement("canvas");c.width=w;c.height=h;
+  const x=c.getContext("2d");x.drawImage(img,0,0);x.globalCompositeOperation="source-in";x.fillStyle=colour;x.fillRect(0,0,w,h);
+  return (img._tints[colour]=c);
+}
+function themedLogo(img){
+  if(!S.logoAuto)return img;
+  const tone=logoTone(img);
+  if(S.theme==="light"&&tone==="light")return tinted(img,S.textColor);
+  if(S.theme!=="light"&&tone==="dark")return tinted(img,"#ffffff");
+  return img;
+}
+
 /* ---------- frame render ---------- */
 function render(){
   const k=cv.width/DW, kh=cv.height/DH;
   ctx.setTransform(k,0,0,kh,0,0);ctx.clearRect(0,0,DW,DH);ctx.textBaseline="alphabetic";
   // background
-  ctx.fillStyle="#1a1511";ctx.fillRect(0,0,DW,DH);
+  const light=S.theme==="light";
+  ctx.fillStyle=light?"#f4f0ea":"#1a1511";ctx.fillRect(0,0,DW,DH);
   if(IM.bg)cover(IM.bg,IM.bg.naturalWidth,IM.bg.naturalHeight,0,0,DW,DH);
-  if(S.bgDim>0){ctx.fillStyle="rgba(0,0,0,"+S.bgDim+")";ctx.fillRect(0,0,DW,DH);}
+  if(light){ctx.fillStyle="rgba(250,247,242,"+Math.min(.94,.62+S.bgDim*.4)+")";ctx.fillRect(0,0,DW,DH);}
+  else if(S.bgDim>0){ctx.fillStyle="rgba(0,0,0,"+S.bgDim+")";ctx.fillRect(0,0,DW,DH);}
   const PX=-175, CX=-120, CY=-60;
   // phone frame + glow
   ctx.save();ctx.translate(PX,0);
@@ -597,7 +647,7 @@ function render(){
   // logo
   let logoW=673;
   if(IM.logo){const bw=680*S.logoScale,bh=130*S.logoScale;const s=Math.min(bw/IM.logo.naturalWidth,bh/IM.logo.naturalHeight);
-    const w=IM.logo.naturalWidth*s,h=IM.logo.naturalHeight*s;ctx.drawImage(IM.logo,930,325-h,w,h);logoW=w-4;}
+    const w=IM.logo.naturalWidth*s,h=IM.logo.naturalHeight*s;ctx.drawImage(themedLogo(IM.logo),930,325-h,w,h);logoW=w-4;}
   // handle + badge
   ctx.fillStyle=S.textColor;ctx.textAlign="left";
   const hs=fitFont(S.handle,600,42.5,S.verified?560:620,20);ctx.font=F(600,hs);ctx.fillText(S.handle,935,382);
@@ -946,25 +996,6 @@ function group(kind,title,items,cls){
   return `<div class="bk-group"><span class="lbl">${title}</span><div class="bk-opts">${opts}<label class="bk-opt"><input type="radio" name="bk-${kind}" value="keep"><span class="thumb none">Keep current</span>&nbsp;</label></div></div>`;
 }
 let kit=null;
-/* dark logo on a transparent background would vanish on the dark spot: recolour it white */
-function whiteIfDark(url){
-  return new Promise(res=>{
-    const im=new Image();im.onload=()=>{
-      try{
-        let w=im.naturalWidth,h=im.naturalHeight;if(!w||!h)return res({url,white:false});
-        const k=Math.min(1,1600/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
-        const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0,w,h);
-        const img=x.getImageData(0,0,w,h),d=img.data;let clear=0,opaque=0,lum=0;
-        for(let i=0;i<d.length;i+=4){if(d[i+3]<40){clear++;continue;}opaque++;lum+=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255;}
-        const total=w*h;
-        if(!opaque||clear/total<0.15||lum/opaque>0.45)return res({url,white:false});
-        for(let i=0;i<d.length;i+=4){d[i]=d[i+1]=d[i+2]=255;}
-        x.putImageData(img,0,0);
-        c.toBlob(b=>res(b?{url:URL.createObjectURL(b),white:true}:{url,white:false}),"image/png");
-      }catch(e){res({url,white:false});}
-    };im.onerror=()=>res({url,white:false});im.src=url;
-  });
-}
 async function runBrand(url,auto){
   const site=$("bkSite").value.trim();
   const b=$("bkGo");b.disabled=true;panel.hidden=true;
@@ -980,7 +1011,6 @@ async function runBrand(url,auto){
     if(!html){say("Couldn't find brand images for that post. Add the brand's website under Brand look and click Pull brand look.","err");return;}
     let colour=null;for(const it of [...by("logo"),...by("avatar")]){if((colour=await brandColour(it.url)))break;}
     panel.innerHTML=html+
-      `<label class="chk"><input type="checkbox" id="bkWhite" checked> Make dark logos white (so they show on the dark spot)</label>`+
       (colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
       `<div class="row"><button type="button" class="rec" id="bkApply">Apply selected</button></div>`;
     panel.dataset.colour=colour||"";
@@ -1010,10 +1040,7 @@ async function apply(auto){
   const done=[];
   try{
     const lg=pick("logo"),av=pick("avatar"),bg=pick("background");
-    if(lg){
-      const w=$("bkWhite")&&$("bkWhite").checked?await whiteIfDark(lg.url):{url:lg.url,white:false};
-      await putFile("fLogo",w.url,"brand-logo.png");done.push(w.white?"logo (made white)":"logo");
-    }
+    if(lg){await putFile("fLogo",lg.url,"brand-logo."+lg.url.split(".").pop());done.push("logo");}
     if(av){await putFile("fAvatar",av.url,"brand-avatar.png");done.push("avatar");}
     if(bg){await putFile("fBg",bg.url,"brand-background.jpg");done.push("background");}
     const cb=$("bkColour");if(cb&&cb.checked&&panel.dataset.colour){setField("accent",panel.dataset.colour);done.push("frame glow colour");}
