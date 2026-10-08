@@ -32,7 +32,7 @@ The builder opens in your browser at **http://localhost:8765**. **Bookmark that 
 
 **The brand's look comes in automatically.** With **Also pull the brand's logo, colour and background** ticked (the default), **Pull video + stats** also:
 - finds the brand's **website** (bio or caption link, or a checked guess from the brand name, e.g. "Bed Bath & Beyond" → bedbathandbeyond.com) to look for its logo. The **QR link is never changed**: you always set it yourself in the QR card;
-- puts in the brand's **logo** (from the website; dark logos are turned white so they show on the dark spot), the **profile picture** as the avatar, a **blurred video frame** as the background, and the logo's **colour** as the frame glow.
+- puts in the brand's **logo** (from the website; it's recoloured to suit the Dark or Light theme), the **profile picture** as the avatar, a **blurred video frame** as the background, and the logo's **colour** as the frame glow.
 
 To swap any of it, open **Brand look**, pick other options and click **Apply selected**. If the website guess is wrong or missing, type the right one under **Brand website** and click **Pull brand look**. Instagram profile counts are filled even without a login (rounded, e.g. 2M); with your Safari login they're exact.
 
@@ -60,6 +60,12 @@ Every prompt automatically asks for a calm centre (the phone sits there) and **n
 - **Rate-limited:** wait a few minutes and try again, or save the video yourself and upload it.
 
 Only use videos you own or have permission to use.
+
+## Dark or light spot
+
+Under **Brand**, switch **Spot theme** between **Dark** (light text over a darker background) and **Light** (dark text over a soft white wash of the background). The slider becomes **Darken background** or **Lighten background** to match.
+
+With **Recolour the logo to suit the theme** on (the default), one-colour logos on a transparent background are recoloured automatically: white on Dark, and the text colour on Light. Logos with their own background, or several colours, are left as they are. If you've picked a custom text colour, switching themes keeps it.
 
 ## Tracking QR code scans
 
