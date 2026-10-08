@@ -110,6 +110,10 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
 .cmd code{flex:1;min-width:0;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .cmd .copy{padding:5px 12px;font-size:11.5px}
 #btnLinkHelp{align-self:flex-start}
+.logopos{align-items:center;justify-content:space-between}
+.logopos>*{flex:0 0 auto}
+.screen canvas.can-drag{cursor:grab}
+.screen canvas.dragging{cursor:grabbing}
 .hubrow>button{flex:0 0 auto}
 dialog#hubDlg{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:0;border-radius:var(--r);background:var(--panel);color:var(--fg);box-shadow:0 18px 50px rgba(18,30,51,.35);padding:22px 22px 18px;font:14px/1.5 var(--f-ui)}
 dialog#hubDlg::backdrop{background:rgba(18,30,51,.55)}
@@ -283,6 +287,15 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
         <div class="row hubrow" id="hubRow" hidden><button type="button" id="hubOpen">Choose from InMarket Logo Hub</button></div>
         <p class="status" id="hubStatus" role="status"></p>
         <label class="f"><span>Logo size</span><input type="range" id="logoScale" data-k="logoScale" min="0.4" max="1.2" step="0.01"></label>
+        <div class="row">
+          <label class="f"><span>Logo left / right</span><input type="range" id="logoX" data-k="logoX" min="-250" max="250" step="1"></label>
+          <label class="f"><span>Logo up / down</span><input type="range" id="logoY" data-k="logoY" min="-200" max="120" step="1"></label>
+        </div>
+        <div class="row logopos">
+          <label class="chk"><input type="checkbox" id="logoTrim" data-k="logoTrim"> Trim empty space around the logo</label>
+          <button type="button" class="linkbtn" id="logoResetPos">Reset position</button>
+        </div>
+        <p class="hint">Tip: you can also drag the logo in the preview.</p>
         <label class="chk"><input type="checkbox" id="logoAuto" data-k="logoAuto"> Recolour the logo to suit the theme (white on Dark, text colour on Light)</label>
         <div class="row">
           <label class="f"><span>Handle</span><input type="text" id="handle" data-k="handle"></label>
@@ -451,7 +464,7 @@ const DW=1672, DH=941;
 const DEF={
   zoom:1,panX:0,panY:0,
   showUI:true,showPlayback:true,avatarText:"KH",avatarColor:"#0d3b5e",likeIcon:"thumb",shareIcon:"arrow",likes:"358",comments:"8",shares:"12",
-  theme:"dark",logoAuto:true,bgDim:0,logoScale:1,handle:"@kirklandshome",verified:true,font:"Montserrat",textColor:"#fffdf8",accent:"#ffe8bc",
+  theme:"dark",logoAuto:true,bgDim:0,logoScale:1,logoX:0,logoY:0,logoTrim:true,handle:"@kirklandshome",verified:true,font:"Montserrat",textColor:"#fffdf8",accent:"#ffe8bc",
   platform:"ig",showSocialIcon:true,followText:"FOLLOW US ON INSTAGRAM",
   s1v:"6,458",s1l:"Posts",s2v:"1.2M",s2l:"Followers",s3v:"366",s3l:"Following",
   qrMode:"gen",qrUrl:"https://www.kirklands.com/",cta:"SCAN THE QR CODE\nTO FIND ALL OUR\nSTORE LOCATIONS",cardColor:"#fcf6ec",ctaColor:"#261e1a",qrColor:"#111111",
@@ -498,6 +511,29 @@ function setPlatform(p){
   if(S.followText===FOLLOW[S.platform])S.followText=FOLLOW[p];
   S.platform=p;syncControls();persist();
 }
+/* drag the logo in the preview */
+(function(){
+  let drag=null;
+  const toDesign=e=>{const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*DW,y:(e.clientY-r.top)/r.height*DH};};
+  const onLogo=p=>logoRect&&p.x>=logoRect.x-12&&p.x<=logoRect.x+logoRect.w+12&&p.y>=logoRect.y-12&&p.y<=logoRect.y+logoRect.h+12;
+  cv.addEventListener("pointermove",e=>{
+    const p=toDesign(e);
+    if(drag){
+      S.logoX=Math.round(Math.max(-250,Math.min(250,drag.ox+p.x-drag.px)));
+      S.logoY=Math.round(Math.max(-200,Math.min(120,drag.oy+p.y-drag.py)));
+      $("logoX").value=S.logoX;$("logoY").value=S.logoY;
+    }else cv.classList.toggle("can-drag",onLogo(p));
+  });
+  cv.addEventListener("pointerdown",e=>{
+    const p=toDesign(e);if(!onLogo(p))return;
+    drag={px:p.x,py:p.y,ox:S.logoX||0,oy:S.logoY||0};cv.setPointerCapture(e.pointerId);cv.classList.add("dragging");e.preventDefault();
+  });
+  const end=()=>{if(!drag)return;drag=null;cv.classList.remove("dragging");persist();};
+  cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+})();
+$("logoResetPos").onclick=()=>{S.logoX=0;S.logoY=0;syncControls();persist();};
+$("fLogo").addEventListener("change",()=>{S.logoX=0;S.logoY=0;syncControls();persist();});
+
 function setTheme(t){
   if(S.theme===t)return;
   if((S.textColor||"").toLowerCase()===THEME_TEXT[S.theme==="light"?"light":"dark"])S.textColor=THEME_TEXT[t];  // keep custom colours
@@ -611,6 +647,25 @@ function logoTone(img){
   }catch(e){tone="keep";}
   img._tone=tone;return tone;
 }
+// visible area of a logo with transparent padding (natural pixels); the whole image when opaque
+function logoBox(img){
+  if(img._box)return img._box;
+  const W=img.naturalWidth,H=img.naturalHeight;let box={x:0,y:0,w:W,h:H};
+  try{
+    if(W&&H){
+      const k2=Math.min(1,600/Math.max(W,H)),w=Math.max(1,Math.round(W*k2)),h=Math.max(1,Math.round(H*k2));
+      const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);
+      const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+      for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)if(d[(yy*w+xx)*4+3]>24){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}
+      if(x1>=x0&&y1>=y0){
+        const sx=W/w,sy=H/h;
+        box={x:Math.max(0,Math.floor((x0-1)*sx)),y:Math.max(0,Math.floor((y0-1)*sy))};
+        box.w=Math.min(W,Math.ceil((x1+2)*sx))-box.x;box.h=Math.min(H,Math.ceil((y1+2)*sy))-box.y;
+      }
+    }
+  }catch(e){}
+  return (img._box=box);
+}
 function tinted(img,colour){
   img._tints=img._tints||{};
   if(img._tints[colour])return img._tints[colour];
@@ -625,6 +680,8 @@ function themedLogo(img){
   if(S.theme!=="light"&&tone==="dark")return tinted(img,"#ffffff");
   return img;
 }
+
+let logoRect=null;  // where the logo was last drawn, in 1920×1080 design units
 
 /* ---------- frame render ---------- */
 function render(){
@@ -672,8 +729,14 @@ function render(){
   ctx.save();ctx.translate(CX,CY);
   // logo
   let logoW=673;
-  if(IM.logo){const bw=680*S.logoScale,bh=130*S.logoScale;const s=Math.min(bw/IM.logo.naturalWidth,bh/IM.logo.naturalHeight);
-    const w=IM.logo.naturalWidth*s,h=IM.logo.naturalHeight*s;ctx.drawImage(themedLogo(IM.logo),930,325-h,w,h);logoW=w-4;}
+  logoRect=null;
+  if(IM.logo&&IM.logo.naturalWidth){
+    const b=S.logoTrim?logoBox(IM.logo):{x:0,y:0,w:IM.logo.naturalWidth,h:IM.logo.naturalHeight};
+    const bw=680*S.logoScale,bh=130*S.logoScale;const s=Math.min(bw/b.w,bh/b.h);
+    const w=b.w*s,h=b.h*s,lx=935+(S.logoX||0),ly=325-h+(S.logoY||0);
+    ctx.drawImage(themedLogo(IM.logo),b.x,b.y,b.w,b.h,lx,ly,w,h);
+    logoW=w-4;logoRect={x:lx+CX,y:ly+CY,w,h};
+  }
   // handle + badge
   ctx.fillStyle=S.textColor;ctx.textAlign="left";
   const hs=fitFont(S.handle,600,42.5,S.verified?560:620,20);ctx.font=F(600,hs);ctx.fillText(S.handle,935,382);

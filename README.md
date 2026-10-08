@@ -61,6 +61,13 @@ Every prompt automatically asks for a calm centre (the phone sits there) and **n
 
 Only use videos you own or have permission to use.
 
+## Positioning the logo
+
+Under **Brand**:
+- **Logo left / right** and **Logo up / down** move the logo; **Reset position** puts it back. You can also **drag the logo in the preview**.
+- **Trim empty space around the logo** (on by default) ignores transparent padding in the logo file, so the logo's visible edge lines up with the handle and stats below it.
+- Choosing a new logo resets its position.
+
 ## InMarket Logo Hub
 
 The builder is connected to the [InMarket Logo Hub](https://inmarket-logo-hub.vercel.app), our library of approved brand logos.
