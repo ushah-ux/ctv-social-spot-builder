@@ -30,8 +30,8 @@ The builder opens in your browser at **http://localhost:8765**. **Bookmark that 
 2. Paste a post's link into **Pull from a link** and click **Pull video + stats**. Or upload a video file yourself with **Upload vertical video**.
 3. Adjust the layers, then click **Export video**.
 
-**The brand's look comes in automatically.** With **Also pull the brand's logo, colour, background and website** ticked (the default), **Pull video + stats** also:
-- finds the brand's **website** (bio or caption link, or a checked guess from the brand name, e.g. "Bed Bath & Beyond" → bedbathandbeyond.com) and points the **QR code** there;
+**The brand's look comes in automatically.** With **Also pull the brand's logo, colour and background** ticked (the default), **Pull video + stats** also:
+- finds the brand's **website** (bio or caption link, or a checked guess from the brand name, e.g. "Bed Bath & Beyond" → bedbathandbeyond.com) to look for its logo. The **QR link is never changed**: you always set it yourself in the QR card;
 - puts in the brand's **logo** (from the website; dark logos are turned white so they show on the dark spot), the **profile picture** as the avatar, a **blurred video frame** as the background, and the logo's **colour** as the frame glow.
 
 To swap any of it, open **Brand look**, pick other options and click **Apply selected**. If the website guess is wrong or missing, type the right one under **Brand website** and click **Pull brand look**. Instagram profile counts are filled even without a login (rounded, e.g. 2M); with your Safari login they're exact.

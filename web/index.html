@@ -193,7 +193,7 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
             <label class="f"><span>Start (optional)</span><input type="text" id="pbStart" placeholder="0:00"></label>
             <label class="f"><span>End (optional)</span><input type="text" id="pbEnd" placeholder="0:15"></label>
           </div>
-          <label class="chk"><input type="checkbox" id="bkAuto" checked> Also pull the brand's logo, colour, background and website</label>
+          <label class="chk"><input type="checkbox" id="bkAuto" checked> Also pull the brand's logo, colour and background</label>
           <div class="row"><button type="button" class="rec" id="pbGo">Pull video + stats</button><button type="button" id="pbStats">Fill stats only</button></div>
           <details class="brandopt">
             <summary>Brand look <span class="tag">Logo · background</span></summary>
@@ -946,8 +946,6 @@ function group(kind,title,items,cls){
   return `<div class="bk-group"><span class="lbl">${title}</span><div class="bk-opts">${opts}<label class="bk-opt"><input type="radio" name="bk-${kind}" value="keep"><span class="thumb none">Keep current</span>&nbsp;</label></div></div>`;
 }
 let kit=null;
-const DEFAULT_QR="https://www.kirklands.com/";
-let autoQr=null;
 /* dark logo on a transparent background would vanish on the dark spot: recolour it white */
 function whiteIfDark(url){
   return new Promise(res=>{
@@ -981,11 +979,9 @@ async function runBrand(url,auto){
     const html=group("logo","Logo",by("logo"))+group("avatar","Avatar (in the phone)",by("avatar"))+group("background","Background",by("background"),"bgthumb");
     if(!html){say("Couldn't find brand images for that post. Add the brand's website under Brand look and click Pull brand look.","err");return;}
     let colour=null;for(const it of [...by("logo"),...by("avatar")]){if((colour=await brandColour(it.url)))break;}
-    const qrOk=kit.site&&!/qrco\.de|q-r\.to/.test($("qrUrl").value);
     panel.innerHTML=html+
       `<label class="chk"><input type="checkbox" id="bkWhite" checked> Make dark logos white (so they show on the dark spot)</label>`+
       (colour?`<label class="chk"><input type="checkbox" id="bkColour" checked> Use the logo's colour <span class="bk-swatch" style="background:${colour}"></span>for the frame glow</label>`:"")+
-      (qrOk?`<label class="chk"><input type="checkbox" id="bkQr" checked> Point the QR code to ${kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")}</label>`:"")+
       `<div class="row"><button type="button" class="rec" id="bkApply">Apply selected</button></div>`;
     panel.dataset.colour=colour||"";
     panel.hidden=false;aiSync();
@@ -1021,10 +1017,6 @@ async function apply(auto){
     if(av){await putFile("fAvatar",av.url,"brand-avatar.png");done.push("avatar");}
     if(bg){await putFile("fBg",bg.url,"brand-background.jpg");done.push("background");}
     const cb=$("bkColour");if(cb&&cb.checked&&panel.dataset.colour){setField("accent",panel.dataset.colour);done.push("frame glow colour");}
-    const qb=$("bkQr"),cur=$("qrUrl").value.trim();
-    if(qb&&qb.checked&&kit.site&&(cur===DEFAULT_QR||cur===autoQr||!cur||!auto)){
-      $("qGen").click();setField("qrUrl",kit.site);autoQr=kit.site;done.push("QR link");
-    }
     say(done.length?(auto?"Brand look applied automatically: ":"Applied ")+done.join(", ")+"."+(auto?" To swap anything, open Brand look below.":" Adjust Logo size and Darken background under Brand if needed."):"Nothing selected, so nothing changed.","ok");
   }catch(e){say("Couldn't apply that: "+(e.message||e),"err");}
 }
