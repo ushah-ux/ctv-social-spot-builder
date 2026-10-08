@@ -17,6 +17,17 @@ Open the **ctv-social-spot-builder-main** folder and double-click **Install Spot
 
 A Terminal window shows the progress (about a minute). If it says you need Python, it opens the download page: install Python, then double-click the installer again.
 
+### If macOS won't open the installer
+
+macOS often blocks scripts downloaded from the internet (and company-managed Macs may hide **Open Anyway**). Start it from Terminal instead; this always works and needs no admin rights:
+
+1. Open **Terminal** (Cmd+Space, type Terminal, press Return).
+2. Type `bash ` (with a space after it). Don't press Return yet.
+3. Drag **Install Spot Builder.command** from Finder into the Terminal window. Its location is filled in for you.
+4. Press **Return**.
+
+If macOS asks whether Terminal may access your **Desktop**, **Documents** or **Downloads** folder, click **Allow**.
+
 **3. Bookmark it**
 The builder opens in your browser at **http://localhost:8765**. **Bookmark that page.** That's your builder from now on.
 
