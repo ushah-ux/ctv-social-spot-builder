@@ -131,7 +131,7 @@ Each tracked code uses one of the account's dynamic QR codes, so make one per sp
 
 ## Updating and removing
 
-- **Update:** download the newest ZIP (step 1) and double-click **Install Spot Builder.command** again.
+- **Update:** download the newest ZIP (step 1) and double-click **Install Spot Builder.command** again. You don't have to keep track: when a new version is on GitHub, a green **A new version of the builder is ready** banner appears at the top of the builder with a **Download update** button and these steps. (It checks every few hours; **Remind me later** hides it for a day.)
 - **Remove:** double-click **Uninstall Spot Builder.command**.
 - **Don't want it running in the background?** Skip the installer and double-click **Start Spot Builder.command** whenever you need it. It runs while its Terminal window is open.
 
@@ -152,6 +152,7 @@ Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the instal
 | Logo Hub | `server.py` proxies `GET /api/logohub?q=&page=` to the Hub's `/api/search` (the Hub's API doesn't allow cross-site calls). Images load straight from the Hub's storage. Point at another Hub with `LOGO_HUB_URL`. |
 | `puller/brand.py` | Finds the brand's profile picture, website logo (`<img>`/inline SVG/JSON-LD/icons), and background images, and makes blurred 1920×1080 backgrounds with ffmpeg. Only fetches from public web addresses. Served via `/api/brand` and `/api/asset/…`. |
 | `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. YouTube needs a JavaScript runtime, so the `deno` package (a bundled Deno binary) is installed with the requirements and passed to yt-dlp. `/api/pull` takes `hd: true` (sent by the U Shape template) for 1080p. |
+| Update banner | `GET /api/update` compares the git blob hash of each installed file with the tree of `main` on GitHub (public API, at most every 6 hours; Markdown and dotfiles are ignored, so README edits don't prompt a reinstall). Any push to `main` that changes app files shows the banner on every installed copy. Skipped in a git checkout. Point at a fork with `SPOT_BUILDER_REPO`. |
 | Templates | `web/index.html` keeps one state object for every template; `S.tpl` picks the renderer (`renderSocial` or `renderU`), and elements with `data-tpl="…"` only show for that template. U Shape draws in 1920×1080 units and times its animation from the video's time (or the recording clock while exporting). |
 
 Pulled videos are kept in `cache/` (git-ignored) and deleted after a day.

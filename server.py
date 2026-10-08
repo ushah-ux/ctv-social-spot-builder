@@ -10,6 +10,7 @@ Serves web/ and adds three endpoints the builder uses to pull videos by link:
   POST /api/brand  {url, site?} -> {handle, name, site, items: [{kind, label, url}]}
   GET  /api/asset/<dir>/<file> -> a pulled brand image
   GET  /api/logohub?q=&page= -> search the InMarket Logo Hub (proxied: the Hub's API has no CORS)
+  GET  /api/update            -> {update, whats_new, zip, ...}: does GitHub's main differ from this copy?
   AI backgrounds (Gemini API, see aibg.py):
   GET  /api/ai/status / POST /api/ai/key {key} / POST /api/ai/forget
   POST /api/ai/background {prompt, count?, ref?} -> {items: [{label, url, soft_url}]}
@@ -220,6 +221,57 @@ def logohub(query: str) -> dict:
             "pageSize": data.get("pageSize", 24)}
 
 
+REPO = os.environ.get("SPOT_BUILDER_REPO", "ushah-ux/ctv-social-spot-builder")
+UPDATE_EVERY = 6 * 3600
+_update = {"at": 0.0, "data": None}
+
+
+def _blob_sha(path: Path) -> str:
+    """The id git gives a file's contents, so local files compare directly with GitHub's."""
+    import hashlib
+    data = path.read_bytes()
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def update_check() -> dict:
+    """Is main on GitHub different from the files this copy runs? Checked at most every 6 hours."""
+    import urllib.request
+    if (ROOT / ".git").exists():  # a developer checkout: you update it with git
+        return {"update": False, "dev": True}
+    if _update["data"] is not None and time.time() - _update["at"] < UPDATE_EVERY:
+        return _update["data"]
+
+    def gh(path: str) -> dict:
+        req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/{path}",
+                                     headers={"User-Agent": "CTV-Spot-Builder", "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read(5_000_000))
+
+    try:
+        head = gh("commits/main")
+        tree = gh(f"git/trees/{head['commit']['tree']['sha']}?recursive=1")
+    except Exception:
+        return {"update": False, "offline": True}  # try again on the next page load
+    changed = []
+    for item in tree.get("tree", []):
+        p = item.get("path", "")
+        if item.get("type") != "blob" or p.endswith(".md") or p.startswith(".") or "/." in p:
+            continue  # docs and dotfiles don't need a reinstall
+        local = ROOT / p
+        if not local.is_file() or _blob_sha(local) != item.get("sha"):
+            changed.append(p)
+    msg = (head.get("commit", {}).get("message") or "").strip().splitlines()
+    data = {
+        "update": bool(changed), "changed": changed[:20],
+        "whats_new": msg[0][:200] if msg else "",
+        "date": head.get("commit", {}).get("committer", {}).get("date"),
+        "zip": f"https://github.com/{REPO}/archive/refs/heads/main.zip",
+        "history": f"https://github.com/{REPO}/commits/main",
+    }
+    _update.update(at=time.time(), data=data)
+    return data
+
+
 def prune_dirs() -> None:
     cutoff = time.time() - 86400
     for d in CACHE.glob("b-*"):
@@ -262,6 +314,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/health":
             return self._json(200, {"ok": True})
+        if self.path == "/api/update":
+            return self._json(200, update_check())
         if self.path.startswith("/api/logohub"):
             try:
                 return self._json(200, logohub(self.path.partition("?")[2]))

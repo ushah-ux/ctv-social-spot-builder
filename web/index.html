@@ -173,6 +173,13 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
 .pullbox{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--lead);border-radius:var(--r-s);padding:12px;background:var(--sunk)}
 .pullbox .row>button{flex:0 0 auto}
 
+.update{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;background:var(--panel);border-radius:var(--r);box-shadow:var(--shadow);outline:2px solid var(--green);outline-offset:-2px;padding:14px 18px;margin-bottom:18px}
+.update-txt{flex:1 1 420px;font-size:13.5px}
+.update-txt ol{margin:6px 0 0;padding-left:20px;font-size:12.5px;color:var(--muted)}
+.update-act{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.update-act a.btn{text-decoration:none;background:var(--hl);color:var(--hl-fg);border-color:transparent;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:11.5px;padding:10px 18px}
+.update-act .linkbtn{align-self:center}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -185,6 +192,22 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
   <span class="spacer"></span>
   <button class="primary" id="goExport" type="button">Export video</button>
 </header>
+
+<div class="update" id="updBar" role="status" hidden>
+  <div class="update-txt">
+    <b>A new version of the builder is ready.</b> <span id="updNew"></span>
+    <ol>
+      <li>Click <b>Download update</b> and double-click the ZIP in Downloads.</li>
+      <li>In the new <b>ctv-social-spot-builder-main</b> folder, double-click <b>Install Spot Builder.command</b> (right-click › Open if macOS asks).</li>
+      <li>Reload this page. Your settings are kept.</li>
+    </ol>
+  </div>
+  <div class="update-act">
+    <a class="btn rec" id="updZip" href="#">Download update</a>
+    <a class="linkbtn" id="updLog" href="#" target="_blank" rel="noopener">What changed</a>
+    <button type="button" class="linkbtn" id="updLater">Remind me later</button>
+  </div>
+</div>
 
 <div class="wrap">
   <section class="monitor" aria-label="Preview">
@@ -1469,6 +1492,22 @@ $("aiGo").onclick=async()=>{
 fetch("/api/ai/status",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{aiConnected=!!d.connected;aiSync();})
   .catch(()=>{$("aiBox").hidden=true;});
 aiSync();
+})();
+</script>
+<script>
+/* ---------- "new version" banner: the helper compares this copy with GitHub's main ---------- */
+(function(){
+"use strict";
+const $=id=>document.getElementById(id), LATER="ctv-update-later";
+fetch("/api/update",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
+  if(!d||!d.update)return;
+  let later=null;try{later=JSON.parse(localStorage.getItem(LATER)||"null");}catch(e){}
+  if(later&&later.date===d.date&&Date.now()<later.until)return;  // snoozed for this version
+  $("updNew").textContent=d.whats_new?"What's new: "+d.whats_new+".":"";
+  $("updZip").href=d.zip;$("updLog").href=d.history;
+  $("updBar").hidden=false;
+  $("updLater").onclick=()=>{$("updBar").hidden=true;try{localStorage.setItem(LATER,JSON.stringify({date:d.date,until:Date.now()+86400000}));}catch(e){}};
+}).catch(()=>{});
 })();
 </script>
 </body>
