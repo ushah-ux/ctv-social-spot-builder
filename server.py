@@ -4,7 +4,7 @@ Local server for the CTV Social Spot Builder.
 
 Serves web/ and adds three endpoints the builder uses to pull videos by link:
   GET  /api/health            -> {"ok": true}
-  POST /api/pull   {url, start?, end?, mute?} -> {id, filename, title, size_bytes, stats, video_url}
+  POST /api/pull   {url, start?, end?, mute?, hd?} -> {id, filename, title, size_bytes, stats, video_url}
   POST /api/stats  {url}      -> {platform, handle, likes, comments, ...}
   GET  /api/video/<id>.mp4    -> the pulled MP4
   POST /api/brand  {url, site?} -> {handle, name, site, items: [{kind, label, url}]}
@@ -114,6 +114,8 @@ def pull(body: dict) -> dict:
             args += [f"--{key}", v]
     if body.get("mute"):
         args.append("--mute")
+    if body.get("hd"):  # full-screen templates (U Shape): keep 1080p
+        args += ["--height", "1080", "--max-mb", "60"]
 
     CACHE.mkdir(exist_ok=True)
     with _lock:  # one name per second; keep pulls from colliding

@@ -42,6 +42,11 @@ except ImportError:
 import yt_dlp
 
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
+try:  # YouTube needs a JavaScript runtime for some formats; the `deno` package bundles one
+    import deno
+    JS_RUNTIMES = {"deno": {"path": deno.find_deno_bin()}}
+except Exception:
+    JS_RUNTIMES = None
 OUT_DIR = Path.home() / "Downloads" / "Video Puller"
 
 SAFARI_HELP = """
@@ -79,6 +84,8 @@ def download(url: str, workdir: Path, max_height: int, browser: str | None) -> t
         "noprogress": True,
         "no_warnings": True,
     }
+    if JS_RUNTIMES:
+        opts["js_runtimes"] = JS_RUNTIMES
     if browser:  # reuse your own logged-in session (Instagram, Facebook, private Vimeo)
         opts["cookiesfrombrowser"] = (browser,)
     try:
@@ -106,6 +113,8 @@ SAFARI_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.
 def fetch_info(url: str, browser: str | None = None) -> dict:
     """Metadata only (no download), with the same Safari fallback as download()."""
     opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    if JS_RUNTIMES:
+        opts["js_runtimes"] = JS_RUNTIMES
     if browser:
         opts["cookiesfrombrowser"] = (browser,)
     try:
@@ -266,7 +275,7 @@ def encode(src: Path, dst: Path, start: float | None, end: float | None,
     audio_kbps = 96 if audio else 0
     budget_kbps = (max_mb * 8 * 1024) / duration * 0.92  # leave container headroom
     video_kbps = int(max(budget_kbps - audio_kbps, 150))
-    video_kbps = min(video_kbps, 4000)  # no point going higher for the web
+    video_kbps = min(video_kbps, 8000 if height >= 1080 else 4000)  # no point going higher for the web
 
     cmd = [FFMPEG, "-y", "-loglevel", "error"]
     if start is not None:

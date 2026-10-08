@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CTV Social Spot Builder</title>
+<title>CTV Spot Builder</title>
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 </head>
 <body>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&family=Figtree:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&family=Figtree:wght@300;400;500;600;700&family=Anton&family=Bebas+Neue&display=swap">
 <style>
 /* Layout: InMarket studio. Sticky 16:9 program monitor left, stacked modal-card inspector right; one column on phones. Palette and type from the InMarket 2025 Brand Guidelines. */
 :root{
@@ -179,9 +179,9 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
 <header class="top">
   <div class="brandblock">
     <span class="wordmark" aria-label="InMarket">IN<i></i>MARKET</span>
-    <h1>CTV Social Spot Builder</h1>
+    <h1>CTV Spot Builder</h1>
   </div>
-  <span class="sub">Drop a vertical social video into the phone, edit every layer, export a 16:9 MP4.</span>
+  <span class="sub" id="tplSub">Drop a vertical social video into the phone, edit every layer, export a 16:9 MP4.</span>
   <span class="spacer"></span>
   <button class="primary" id="goExport" type="button">Export video</button>
 </header>
@@ -195,18 +195,29 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
       <button type="button" id="btnSound">Sound off</button>
       <span class="tc" id="tc">Sample still</span>
     </div>
-    <p class="note" id="srcNote"><b>Showing a sample still.</b> Upload your vertical video under Phone video to play it inside the phone.</p>
+    <p class="note" id="srcNote"></p>
   </section>
 
   <aside class="rail" aria-label="Layers">
 
     <details open>
-      <summary>Phone video <span class="tag">Source</span></summary>
+      <summary>Template <span class="tag">Layout</span></summary>
       <div class="body">
-        <label class="file"><input type="file" id="fVideo" accept="video/*"><span class="t">Upload vertical video</span><span class="s" id="fVideoName">MP4, MOV or WebM</span></label>
+        <div class="seg" role="group" aria-label="Template">
+          <button type="button" id="tplSocial" aria-pressed="true">CTV Social</button>
+          <button type="button" id="tplU" aria-pressed="false">CTV - U Shape</button>
+        </div>
+        <p class="hint" id="tplHint"></p>
+      </div>
+    </details>
+
+    <details open>
+      <summary><span id="videoSecTitle">Phone video</span> <span class="tag">Source</span></summary>
+      <div class="body">
+        <label class="file"><input type="file" id="fVideo" accept="video/*"><span class="t" id="fVideoLabel">Upload vertical video</span><span class="s" id="fVideoName">MP4, MOV or WebM</span></label>
         <p class="hint">Instagram and Facebook don't let web pages pull videos by link, so get the file onto your Mac first, then upload it here.</p>
         <div class="pullbox" id="pullBox" hidden>
-          <label class="f"><span>Pull from a link</span><input type="url" id="pbUrl" placeholder="Paste an Instagram, Facebook or YouTube link"></label>
+          <label class="f"><span>Pull from a link</span><input type="url" id="pbUrl" placeholder="Paste a YouTube, Instagram, Facebook or TikTok link"></label>
           <div class="row">
             <label class="f"><span>Start (optional)</span><input type="text" id="pbStart" placeholder="0:00"></label>
             <label class="f"><span>End (optional)</span><input type="text" id="pbEnd" placeholder="0:15"></label>
@@ -248,7 +259,41 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
       </div>
     </details>
 
-    <details open>
+    <details open data-tpl="ushape">
+      <summary>U Shape <span class="tag">Motion · layout</span></summary>
+      <div class="body">
+        <div class="row">
+          <label class="f"><span>Shrink into the U at (seconds)</span><input type="number" id="uAt" data-k="uAt" min="0" max="60" step="0.1"></label>
+          <label class="f"><span>Move takes (seconds)</span><input type="number" id="uDur" data-k="uDur" min="0.3" max="3" step="0.1"></label>
+        </div>
+        <p class="hint">The video plays full screen, then shrinks to the bottom centre and the U frame appears around it. Set 0 to start in the U.</p>
+        <label class="f"><span>Video size in the U</span><input type="range" id="uSize" data-k="uSize" min="0.6" max="0.8" step="0.005"></label>
+        <div class="row">
+          <label class="f"><span>Left shade</span><input type="color" id="uShadeL" data-k="uShadeL"></label>
+          <label class="f"><span>Right shade</span><input type="color" id="uShadeR" data-k="uShadeR"></label>
+        </div>
+        <label class="f"><span>Shade strength</span><input type="range" id="uShade" data-k="uShade" min="0" max="1" step="0.01"></label>
+        <p class="hint">The shades fade in from the sides over the background, so the store details and the call to action stay readable.</p>
+      </div>
+    </details>
+
+    <details open data-tpl="ushape">
+      <summary>Store <span class="tag">Retailer · nearest store</span></summary>
+      <div class="body">
+        <label class="file"><input type="file" id="fRetail" accept="image/png,image/svg+xml,image/webp,image/*"><span class="t">Retailer logo</span><span class="s" id="fRetailName">Optional. Use a transparent PNG.</span></label>
+        <div class="row hubrow" id="hubRowRetail" hidden><button type="button" id="hubOpenRetail">Choose from InMarket Logo Hub</button></div>
+        <p class="status" id="hubStatusRetail" role="status"></p>
+        <label class="f"><span>Retailer logo size</span><input type="range" id="retailScale" data-k="retailScale" min="0.4" max="1.3" step="0.01"></label>
+        <label class="f"><span>Store address (one line per row)</span><textarea id="storeAddr" data-k="storeAddr" rows="3"></textarea></label>
+        <div class="row">
+          <label class="f"><span>Phone</span><input type="text" id="storePhone" data-k="storePhone"></label>
+        </div>
+        <label class="f"><span>Website</span><input type="text" id="storeWeb" data-k="storeWeb"></label>
+        <p class="hint">Uses the Text colour under Brand. Leave any line empty to hide it.</p>
+      </div>
+    </details>
+
+    <details open data-tpl="social">
       <summary>Phone overlay <span class="tag">In-feed UI</span></summary>
       <div class="body">
         <div class="row">
@@ -297,21 +342,25 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
         </div>
         <p class="hint">Tip: you can also drag the logo in the preview.</p>
         <label class="chk"><input type="checkbox" id="logoAuto" data-k="logoAuto"> Recolour the logo to suit the theme (white on Dark, text colour on Light)</label>
-        <div class="row">
+        <div class="row" data-tpl="ushape">
+          <label class="chk"><input type="checkbox" id="uPlate" data-k="uPlate"> Put the logo on a plate</label>
+          <label class="f"><span>Plate colour</span><input type="color" id="uPlateColor" data-k="uPlateColor"></label>
+        </div>
+        <div class="row" data-tpl="social">
           <label class="f"><span>Handle</span><input type="text" id="handle" data-k="handle"></label>
         </div>
-        <div class="row">
+        <div class="row" data-tpl="social">
           <label class="chk"><input type="checkbox" id="verified" data-k="verified"> Verified badge</label>
         </div>
         <div class="row">
           <label class="f"><span>Typeface</span><select id="font" data-k="font"><option>Montserrat</option><option>Poppins</option><option>Figtree</option></select></label>
           <label class="f"><span>Text colour</span><input type="color" id="textColor" data-k="textColor"></label>
-          <label class="f"><span>Frame glow</span><input type="color" id="accent" data-k="accent"></label>
+          <label class="f" data-tpl="social"><span>Frame glow</span><input type="color" id="accent" data-k="accent"></label>
         </div>
       </div>
     </details>
 
-    <details open>
+    <details open data-tpl="social">
       <summary>Social &amp; stats <span class="tag">Follow line</span></summary>
       <div class="body">
         <div class="f"><span>Platform icon</span>
@@ -331,7 +380,7 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
     </details>
 
     <details open>
-      <summary>QR card <span class="tag">Call to action</span></summary>
+      <summary><span id="qrSecTitle">QR card</span> <span class="tag">Call to action</span></summary>
       <div class="body">
         <div class="seg" role="group" aria-label="QR source">
           <button type="button" id="qGen" aria-pressed="true">Make from link</button>
@@ -360,10 +409,12 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
         </div>
         <label class="file" id="qrFileWrap" hidden><input type="file" id="fQr" accept="image/*"><span class="t">QR image</span><span class="s" id="fQrName">PNG or JPG</span></label>
         <p class="status" id="qrStatus"></p>
-        <label class="f"><span>Card text (one line per row)</span><textarea id="cta" data-k="cta" rows="3"></textarea></label>
+        <label class="chk"><input type="checkbox" id="qrLogo" data-k="qrLogo"> Put the brand logo in the middle of the QR code</label>
+        <label class="f"><span id="ctaLabel">Card text (one line per row)</span><textarea id="cta" data-k="cta" rows="3"></textarea></label>
+        <label class="f" data-tpl="ushape"><span>Headline typeface</span><select id="uCtaFont" data-k="uCtaFont"><option>Anton</option><option>Bebas Neue</option><option value="text">Same as the text</option></select></label>
         <div class="row">
-          <label class="f"><span>Card colour</span><input type="color" id="cardColor" data-k="cardColor"></label>
-          <label class="f"><span>Card text colour</span><input type="color" id="ctaColor" data-k="ctaColor"></label>
+          <label class="f"><span id="cardColorLabel">Card colour</span><input type="color" id="cardColor" data-k="cardColor"></label>
+          <label class="f"><span id="ctaColorLabel">Card text colour</span><input type="color" id="ctaColor" data-k="ctaColor"></label>
           <label class="f"><span>QR colour</span><input type="color" id="qrColor" data-k="qrColor"></label>
         </div>
       </div>
@@ -420,7 +471,7 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
 <dialog id="hubDlg" aria-labelledby="hubDlgTitle">
   <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
   <h2 id="hubDlgTitle">InMarket Logo Hub</h2>
-  <p class="hint">Approved brand logos from the <a href="https://inmarket-logo-hub.vercel.app" target="_blank" rel="noopener">InMarket Logo Hub</a>. Click one to use it as the spot's logo.</p>
+  <p class="hint">Approved brand logos from the <a href="https://inmarket-logo-hub.vercel.app" target="_blank" rel="noopener">InMarket Logo Hub</a>. Click one to use it as <span id="hubLead">the spot's logo.</span></p>
   <input type="search" id="hubQ" placeholder="Search a brand, e.g. Target" autocomplete="off" aria-label="Search the Logo Hub">
   <p class="status" id="hubDlgStatus" role="status"></p>
   <div class="hubgrid" id="hubGrid"></div>
@@ -468,13 +519,27 @@ const DEF={
   platform:"ig",showSocialIcon:true,followText:"FOLLOW US ON INSTAGRAM",
   s1v:"6,458",s1l:"Posts",s2v:"1.2M",s2l:"Followers",s3v:"366",s3l:"Following",
   qrMode:"gen",qrUrl:"https://www.kirklands.com/",cta:"SCAN THE QR CODE\nTO FIND ALL OUR\nSTORE LOCATIONS",cardColor:"#fcf6ec",ctaColor:"#261e1a",qrColor:"#111111",
-  res:"1920x1080",lenMode:"video",secs:15,audio:true
+  res:"1920x1080",lenMode:"video",secs:15,audio:true,
+  tpl:"social",qrLogo:false,
+  uAt:5,uDur:1.1,uSize:0.72,uShadeL:"#1b2a4e",uShadeR:"#dceff0",uShade:0.85,uPlate:false,uPlateColor:"#ffffff",uCtaFont:"Anton",
+  retailScale:1,storeAddr:"123 MAIN STREET\nANYTOWN, ST 00000",storePhone:"(555) 555-0100",storeWeb:"WWW.RETAILER.COM"
 };
 const FOLLOW={ig:"FOLLOW US ON INSTAGRAM",fb:"FOLLOW US ON FACEBOOK"};
+const CTA_DEF={social:DEF.cta,ushape:"SCAN THE\nQR CODE\nTO LEARN\nMORE"};
+const CTA_COLOR_DEF={social:DEF.ctaColor,ushape:"#111111"};
+const TPL={
+  social:{sub:"Drop a vertical social video into the phone, edit every layer, export a 16:9 MP4.",
+    hint:"A vertical social video plays inside a phone, with the brand's logo, handle, stats and a QR card beside it.",
+    video:"Phone video",upload:"Upload vertical video",file:"social-spot"},
+  ushape:{sub:"A landscape video (e.g. YouTube) plays full screen, then shrinks into a U frame with the logo, nearest store and QR code.",
+    hint:"The video plays full screen, then shrinks to the bottom centre. The brand logo drops in on top, the retailer and nearest store sit on the left and the QR call to action on the right.",
+    video:"Video",upload:"Upload video",file:"u-shape-spot"}
+};
 const THEME_TEXT={dark:"#fffdf8",light:"#1f1b17"};
 const KEY="ctv-spot-builder-v1";
 let S=Object.assign({},DEF);
 try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)Object.assign(S,s);}catch(e){}
+const URL_TPL=new URLSearchParams(location.search).get("template");  // e.g. /?template=ushape
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 const $=id=>document.getElementById(id);
@@ -496,13 +561,30 @@ function syncControls(){
   $("qGen").setAttribute("aria-pressed",S.qrMode==="gen");$("qUp").setAttribute("aria-pressed",S.qrMode==="up");
   $("qrUrlWrap").hidden=S.qrMode!=="gen";$("qrFileWrap").hidden=S.qrMode!=="up";
   $("secs").disabled=S.lenMode!=="custom"&&hasVideo;
+  const u=S.tpl==="ushape",T=TPL[S.tpl]||TPL.social;
+  document.body.dataset.tpl=S.tpl;
+  $("tplSocial").setAttribute("aria-pressed",!u);$("tplU").setAttribute("aria-pressed",u);
+  document.querySelectorAll("[data-tpl]").forEach(el=>{el.hidden=el.dataset.tpl!==S.tpl;});
+  $("tplSub").textContent=T.sub;$("tplHint").textContent=T.hint;$("videoSecTitle").textContent=T.video;$("fVideoLabel").textContent=T.upload;
+  $("qrSecTitle").textContent=u?"QR code":"QR card";
+  $("ctaLabel").textContent=u?"Headline (one line per row)":"Card text (one line per row)";
+  $("cardColorLabel").textContent=u?"QR background":"Card colour";
+  $("ctaColorLabel").textContent=u?"Headline colour":"Card text colour";
+  if(!hasVideo)$("srcNote").innerHTML=u?"<b>Showing the finished U layout.</b> Upload a landscape video, or pull one from a YouTube link, to see it play full screen and shrink into the U."
+    :"<b>Showing a sample still.</b> Upload your vertical video under Phone video to play it inside the phone.";
+}
+function setTemplate(t){
+  if(S.tpl===t)return;
+  if(S.cta===CTA_DEF[S.tpl])S.cta=CTA_DEF[t];  // swap the default call to action, keep custom text
+  if(S.ctaColor===CTA_COLOR_DEF[S.tpl])S.ctaColor=CTA_COLOR_DEF[t];
+  S.tpl=t;S.logoX=0;S.logoY=0;syncControls();persist();
 }
 document.querySelectorAll("[data-k]").forEach(el=>{
   el.addEventListener("input",()=>{
     const k=el.dataset.k;
     S[k]=el.type==="checkbox"?el.checked:(el.type==="range"||el.type==="number")?parseFloat(el.value):el.value;
-    if(k==="qrUrl")makeQR();
-    if(k==="font")loadFont();
+    if(k==="qrUrl"||k==="qrLogo")makeQR();
+    if(k==="font"||k==="uCtaFont")loadFont();
     if(k==="lenMode")syncControls();
     persist();
   });
@@ -514,7 +596,7 @@ function setPlatform(p){
 /* drag the logo in the preview */
 (function(){
   let drag=null;
-  const toDesign=e=>{const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*DW,y:(e.clientY-r.top)/r.height*DH};};
+  const toDesign=e=>{const r=cv.getBoundingClientRect(),u=S.tpl==="ushape";return {x:(e.clientX-r.left)/r.width*(u?UW:DW),y:(e.clientY-r.top)/r.height*(u?UH:DH)};};
   const onLogo=p=>logoRect&&p.x>=logoRect.x-12&&p.x<=logoRect.x+logoRect.w+12&&p.y>=logoRect.y-12&&p.y<=logoRect.y+logoRect.h+12;
   cv.addEventListener("pointermove",e=>{
     const p=toDesign(e);
@@ -540,13 +622,14 @@ function setTheme(t){
   S.theme=t;syncControls();persist();
 }
 $("thDark").onclick=()=>setTheme("dark");$("thLight").onclick=()=>setTheme("light");
+$("tplSocial").onclick=()=>setTemplate("social");$("tplU").onclick=()=>setTemplate("ushape");
 $("pIG").onclick=()=>setPlatform("ig");$("pFB").onclick=()=>setPlatform("fb");
 $("qGen").onclick=()=>{S.qrMode="gen";syncControls();persist();};
 $("qUp").onclick=()=>{S.qrMode="up";syncControls();persist();};
-$("btnReset").onclick=()=>{S=Object.assign({},DEF);IM.bg=IM.bgDef;IM.logo=IM.logoDef;IM.avatar=null;IM.qr=null;
-  ["fBgName","fLogoName","fAvatarName","fQrName"].forEach(id=>{$(id).textContent=$(id).dataset.def;});
+$("btnReset").onclick=()=>{const tpl=S.tpl;S=Object.assign({},DEF,{tpl,cta:CTA_DEF[tpl],ctaColor:CTA_COLOR_DEF[tpl]});IM.bg=IM.bgDef;IM.logo=IM.logoDef;IM.avatar=null;IM.qr=null;IM.retail=null;
+  ["fBgName","fLogoName","fAvatarName","fQrName","fRetailName"].forEach(id=>{$(id).textContent=$(id).dataset.def;});
   syncControls();makeQR();loadFont();persist();};
-["fBgName","fLogoName","fAvatarName","fQrName"].forEach(id=>{$(id).dataset.def=$(id).textContent;});
+["fBgName","fLogoName","fAvatarName","fQrName","fRetailName"].forEach(id=>{$(id).dataset.def=$(id).textContent;});
 
 function fileToImg(input,nameEl,key){
   input.addEventListener("change",async()=>{
@@ -557,7 +640,7 @@ function fileToImg(input,nameEl,key){
   });
 }
 fileToImg($("fBg"),"fBgName","bg");fileToImg($("fLogo"),"fLogoName","logo");
-fileToImg($("fAvatar"),"fAvatarName","avatar");fileToImg($("fQr"),"fQrName","qr");
+fileToImg($("fAvatar"),"fAvatarName","avatar");fileToImg($("fQr"),"fQrName","qr");fileToImg($("fRetail"),"fRetailName","retail");
 
 /* ---------- video ---------- */
 let hasVideo=false;
@@ -568,7 +651,9 @@ $("fVideo").addEventListener("change",()=>{
   vid.onloadedmetadata=()=>{
     hasVideo=true;syncControls();
     const port=vid.videoHeight>vid.videoWidth;
-    $("srcNote").innerHTML=port?"<b>"+escapeHtml(f.name)+"</b> is playing inside the phone.":"<b>This video is landscape.</b> It's cropped to fill the phone; use Zoom and Pan to frame it.";
+    if(S.tpl==="ushape")$("srcNote").innerHTML=!port?"<b>"+escapeHtml(f.name)+"</b> plays full screen, then shrinks into the U at "+S.uAt+"s. Use Restart to watch it again."
+      :"<b>This video is vertical.</b> It's cropped to fill the 16:9 frame; use Zoom and Pan to frame it, or switch to the CTV Social template.";
+    else $("srcNote").innerHTML=port?"<b>"+escapeHtml(f.name)+"</b> is playing inside the phone.":"<b>This video is landscape.</b> It's cropped to fill the phone; use Zoom and Pan to frame it.";
     vid.play().catch(()=>{});$("btnPlay").textContent="Pause";
   };
   vid.onerror=()=>{hasVideo=false;$("srcNote").innerHTML="<b>That file won't play in this browser.</b> Export it as an H.264 MP4 and upload again (the video puller does this for you; see <i>Get a video from an Instagram or Facebook link</i>).";};
@@ -580,17 +665,18 @@ $("btnSound").onclick=()=>{if(!hasVideo)return;vid.muted=!vid.muted;$("btnSound"
 function fmt(t){t=Math.max(0,t||0);const m=Math.floor(t/60),s=Math.floor(t%60);return m+":"+String(s).padStart(2,"0");}
 
 /* ---------- fonts ---------- */
-function loadFont(){const f=S.font;[300,500,600,700].forEach(w=>{try{document.fonts.load(w+' 40px "'+f+'"');}catch(e){}});}
+function loadFont(){const f=S.font;[300,500,600,700].forEach(w=>{try{document.fonts.load(w+' 40px "'+f+'"');}catch(e){}});
+  ["Anton","Bebas Neue"].forEach(h=>{try{document.fonts.load('400 40px "'+h+'"');}catch(e){}});}
 loadFont();
 const F=(w,px)=>w+" "+px+'px "'+S.font+'", "Montserrat", "Helvetica Neue", Arial, sans-serif';
 
 /* ---------- QR ---------- */
 let QR=null;
-function makeQR(){
+function makeQR(){  // error correction H when the logo covers the middle
   const url=(S.qrUrl||"").trim();
   if(!url){QR=null;$("qrStatus").textContent="Add a link to generate the code.";$("qrStatus").className="status";return;}
   if(typeof qrcode!=="function"){QR=null;$("qrStatus").textContent="The QR generator didn't load. Upload a QR image instead.";$("qrStatus").className="status err";return;}
-  try{const q=qrcode(0,"M");q.addData(url);q.make();const n=q.getModuleCount();const m=[];for(let r=0;r<n;r++){m[r]=[];for(let c=0;c<n;c++)m[r][c]=q.isDark(r,c);}QR={n,m};
+  try{const q=qrcode(0,S.qrLogo?"H":"M");q.addData(url);q.make();const n=q.getModuleCount();const m=[];for(let r=0;r<n;r++){m[r]=[];for(let c=0;c<n;c++)m[r][c]=q.isDark(r,c);}QR={n,m};
     $("qrStatus").textContent="QR code points to "+url;$("qrStatus").className="status ok";}
   catch(e){QR=null;$("qrStatus").textContent="That link is too long for a QR code. Shorten it and try again.";$("qrStatus").className="status err";}
 }
@@ -684,7 +770,8 @@ function themedLogo(img){
 let logoRect=null;  // where the logo was last drawn, in 1920×1080 design units
 
 /* ---------- frame render ---------- */
-function render(){
+function render(){if(S.tpl==="ushape")renderU();else renderSocial();}
+function renderSocial(){
   const k=cv.width/DW, kh=cv.height/DH;
   ctx.setTransform(k,0,0,kh,0,0);ctx.clearRect(0,0,DW,DH);ctx.textBaseline="alphabetic";
   // background
@@ -766,7 +853,7 @@ function render(){
   ctx.save();ctx.shadowColor="rgba(0,0,0,.28)";ctx.shadowBlur=18*k;ctx.shadowOffsetY=4*k;const CL=935,CR=Math.max(935+520,930+logoW),CW=CR-CL;rr(CL,672,CW,190,32);ctx.fillStyle=S.cardColor;ctx.fill();ctx.restore();
   const QX=CL+35,QY=693,QS=148,DVX=QX+QS+46,TCX=(DVX+CR)/2,TMW=CR-DVX-56;
   if(S.qrMode==="up"&&IM.qr){ctx.drawImage(IM.qr,QX,QY,QS,QS);}
-  else if(S.qrMode==="gen"&&QR){const cs=QS/QR.n;ctx.fillStyle=S.qrColor;for(let r=0;r<QR.n;r++)for(let c=0;c<QR.n;c++)if(QR.m[r][c])ctx.fillRect(QX+c*cs,QY+r*cs,cs+.35,cs+.35);}
+  else if(S.qrMode==="gen"&&QR){drawQR(QX,QY,QS);}
   else{ctx.strokeStyle=hexA(S.ctaColor,.35);ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeRect(QX,QY,QS,QS);ctx.setLineDash([]);ctx.fillStyle=hexA(S.ctaColor,.55);ctx.font=F(500,16);ctx.textAlign="center";ctx.fillText("QR code",QX+QS/2,QY+QS/2+6);}
   ctx.fillStyle=hexA(S.ctaColor,.35);ctx.fillRect(DVX-1,705,2,125);
   const lines=(S.cta||"").split(/\n/).map(s=>s.trim()).filter(Boolean).slice(0,4);
@@ -774,6 +861,109 @@ function render(){
     const maxW=TMW;ctx.font=F(700,sz);while(sz>14&&(lines.some(t=>ctx.measureText(t).width>maxW)||lh()*lines.length>160)){sz-=1;ctx.font=F(700,sz);}
     ctx.fillStyle=S.ctaColor;ctx.textAlign="center";const y0=767-(lines.length-1)*lh()/2+sz*0.36;
     lines.forEach((t,i)=>ctx.fillText(t,TCX,y0+i*lh()));}
+  ctx.restore();
+}
+
+/* generated QR modules, plus the brand logo on a small plate in the middle when chosen */
+function drawQR(x,y,size){
+  const cs=size/QR.n;ctx.fillStyle=S.qrColor;
+  for(let r=0;r<QR.n;r++)for(let c=0;c<QR.n;c++)if(QR.m[r][c])ctx.fillRect(x+c*cs,y+r*cs,cs+.35,cs+.35);
+  if(!S.qrLogo||!IM.logo||!IM.logo.naturalWidth)return;
+  const b=S.logoTrim?logoBox(IM.logo):{x:0,y:0,w:IM.logo.naturalWidth,h:IM.logo.naturalHeight};
+  const s=Math.min(size*.44/b.w,size*.2/b.h),w=b.w*s,h=b.h*s,pad=size*.035;
+  ctx.fillStyle=S.cardColor;rr(x+(size-w)/2-pad,y+(size-h)/2-pad,w+pad*2,h+pad*2,pad*1.4);ctx.fill();
+  ctx.drawImage(IM.logo,b.x,b.y,b.w,b.h,x+(size-w)/2,y+(size-h)/2,w,h);
+}
+
+/* ---------- CTV - U Shape ---------- */
+// Full-screen video that shrinks to the bottom centre at S.uAt; the logo drops in above it, the
+// retailer + nearest store fill the left column and the QR call to action the right. 1920×1080 units.
+const UW=1920, UH=1080;
+const clamp01=v=>Math.max(0,Math.min(1,v));
+const easeIO=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const easeOut=t=>1-Math.pow(1-t,3);
+let recT0=0;
+// seconds into the spot: recording time while exporting, else the video's time; no video = finished layout
+function spotTime(){if(recording)return (performance.now()-recT0)/1000;return hasVideo?vid.currentTime:1e9;}
+const HF=px=>(S.uCtaFont==="text"?F(800,px):'400 '+px+'px "'+S.uCtaFont+'", "Anton", Impact, "Arial Narrow", sans-serif');
+function renderU(){
+  const k=cv.width/UW;
+  ctx.setTransform(k,0,0,cv.height/UH,0,0);ctx.clearRect(0,0,UW,UH);ctx.textBaseline="alphabetic";
+  const t=spotTime(), p=S.uAt<=0?1:clamp01((t-S.uAt)/Math.max(.1,S.uDur)), e=easeIO(p);
+  const VW=Math.round(UW*S.uSize), VH=Math.round(VW*9/16), VX=Math.round((UW-VW)/2), VY=UH-VH, COL=VX;
+  const light=S.theme==="light";
+  // background + side shades
+  ctx.fillStyle=light?"#f4f0ea":"#1a1511";ctx.fillRect(0,0,UW,UH);
+  if(IM.bg)cover(IM.bg,IM.bg.naturalWidth,IM.bg.naturalHeight,0,0,UW,UH);
+  if(light){ctx.fillStyle="rgba(250,247,242,"+Math.min(.94,.62+S.bgDim*.4)+")";ctx.fillRect(0,0,UW,UH);}
+  else if(S.bgDim>0){ctx.fillStyle="rgba(0,0,0,"+S.bgDim+")";ctx.fillRect(0,0,UW,UH);}
+  if(S.uShade>0){
+    const g=ctx.createLinearGradient(0,0,UW,0);
+    g.addColorStop(0,hexA(S.uShadeL,S.uShade));g.addColorStop(.42,hexA(S.uShadeL,0));
+    g.addColorStop(.58,hexA(S.uShadeR,0));g.addColorStop(1,hexA(S.uShadeR,S.uShade));
+    ctx.fillStyle=g;ctx.fillRect(0,0,UW,UH);
+  }
+  // side columns fade and slide in behind the shrinking video
+  const ca=easeOut(clamp01((p-.35)/.65));
+  if(ca>0){
+    ctx.save();ctx.globalAlpha=ca;
+    // left: retailer logo, address, phone, website (bottom-up)
+    const LX=24, LW=COL-48;
+    ctx.save();ctx.translate(-(1-ca)*40,0);
+    ctx.fillStyle=S.textColor;ctx.textAlign="left";
+    const groups=[(S.storeAddr||"").split(/\n/).map(s=>s.trim()).filter(Boolean),[S.storePhone],[S.storeWeb]].map(g=>g.map(s=>String(s||"").trim()).filter(Boolean)).filter(g=>g.length);
+    const all=groups.flat();let fs=24;
+    ctx.font=F(500,fs);while(fs>12&&all.some(s=>ctx.measureText(s).width>LW)){fs-=1;ctx.font=F(500,fs);}
+    const lh=fs*1.2, gap=fs*1.05;
+    let y=UH-80;
+    const ys=[];for(let gi=groups.length-1;gi>=0;gi--){const g=groups[gi];for(let li=g.length-1;li>=0;li--){ys.unshift([g[li],y]);y-=lh;}y-=gap;}
+    ys.forEach(([s,yy])=>ctx.fillText(s,LX,yy));
+    const textTop=(ys.length?ys[0][1]-fs:UH-80);
+    if(IM.retail&&IM.retail.naturalWidth){
+      const b=logoBox(IM.retail),bh=170*S.retailScale,bw=LW*Math.min(1.15,S.retailScale);
+      const s=Math.min(bw/b.w,bh/b.h),w=b.w*s,h=b.h*s;
+      ctx.drawImage(IM.retail,b.x,b.y,b.w,b.h,LX,textTop-36-h,w,h);
+    }
+    ctx.restore();
+    // right: headline + QR (bottom-up)
+    ctx.save();ctx.translate((1-ca)*40,0);
+    const RX=VX+VW+37, RW=UW-RX-37, QS=Math.min(RW,200), QX=RX+(RW-QS)/2, QY=UH-32-QS;
+    ctx.save();ctx.shadowColor="rgba(0,0,0,.25)";ctx.shadowBlur=14*k;ctx.shadowOffsetY=3*k;ctx.fillStyle=S.cardColor;ctx.fillRect(QX,QY,QS,QS);ctx.restore();
+    const qi=QS*.06, QI=QS-qi*2;
+    if(S.qrMode==="up"&&IM.qr)ctx.drawImage(IM.qr,QX,QY,QS,QS);
+    else if(S.qrMode==="gen"&&QR)drawQR(QX+qi,QY+qi,QI);
+    else{ctx.strokeStyle=hexA(S.ctaColor,.35);ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeRect(QX+qi,QY+qi,QI,QI);ctx.setLineDash([]);ctx.fillStyle=hexA(S.ctaColor,.55);ctx.font=F(500,18);ctx.textAlign="center";ctx.fillText("QR code",QX+QS/2,QY+QS/2+6);}
+    const lines=(S.cta||"").split(/\n/).map(s=>s.trim()).filter(Boolean).slice(0,6);
+    if(lines.length){
+      let hs=56;ctx.font=HF(hs);
+      const maxH=QY-36-(VY>0?VY*.2:60);
+      while(hs>16&&(lines.some(s=>ctx.measureText(s).width>RW)||lines.length*hs*.9>maxH)){hs-=1;ctx.font=HF(hs);}
+      const hl=hs*(S.uCtaFont==="text"?1.12:.9);
+      ctx.fillStyle=S.ctaColor;ctx.textAlign="left";
+      lines.forEach((s,i)=>ctx.fillText(s,QX,QY-36-(lines.length-1-i)*hl));
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+  // brand logo drops in from above
+  logoRect=null;
+  const la=easeOut(clamp01((p-.15)/.85));
+  if(la>0&&IM.logo&&IM.logo.naturalWidth){
+    const b=S.logoTrim?logoBox(IM.logo):{x:0,y:0,w:IM.logo.naturalWidth,h:IM.logo.naturalHeight};
+    const plate=S.uPlate, padX=plate?38:0, padY=plate?22:0;
+    const bw=(640-padX*2)*S.logoScale, bh=(Math.min(175,VY-70)-padY*2)*S.logoScale;
+    const s=Math.min(bw/b.w,Math.max(20,bh)/b.h), w=b.w*s, h=b.h*s;
+    const lx=(UW-w)/2+(S.logoX||0), ly0=(VY-h)/2+(S.logoY||0), ly=ly0-(1-la)*(ly0+h+padY*2+20);
+    if(plate){ctx.save();ctx.shadowColor="rgba(0,0,0,.25)";ctx.shadowBlur=16*k;ctx.shadowOffsetY=4*k;ctx.fillStyle=S.uPlateColor;rr(lx-padX,ly-padY,w+padX*2,h+padY*2,Math.min(32,(h+padY*2)/2));ctx.fill();ctx.restore();}
+    ctx.drawImage(plate?IM.logo:themedLogo(IM.logo),b.x,b.y,b.w,b.h,lx,ly,w,h);
+    logoRect={x:lx-padX,y:ly-padY,w:w+padX*2,h:h+padY*2};
+  }
+  // the video: full frame → bottom centre
+  const x=VX*e, y=VY*e, w=UW+(VW-UW)*e, h=UH+(VH-UH)*e;
+  if(e>0){ctx.save();ctx.shadowColor="rgba(0,0,0,"+(.35*e)+")";ctx.shadowBlur=30*k;ctx.fillStyle="#000";ctx.fillRect(x,y,w,h);ctx.restore();}
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle="#000";ctx.fillRect(x,y,w,h);
+  if(hasVideo&&vid.readyState>=2)cover(vid,vid.videoWidth,vid.videoHeight,x,y,w,h,S.zoom,S.panX,S.panY);
+  else if(IM.poster)cover(IM.poster,IM.poster.naturalWidth,IM.poster.naturalHeight,x,y,w,h,S.zoom,S.panX,S.panY);
   ctx.restore();
 }
 
@@ -819,8 +1009,8 @@ $("btnRec").onclick=async()=>{
   rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
   $("result").hidden=true;
   if(hasVideo){vid.pause();vid.currentTime=0;await new Promise(r=>{vid.onseeked=()=>{vid.onseeked=null;r();};setTimeout(r,800);});}
-  recording=true;$("btnRec").textContent="Stop";setStatus("Recording… keep this tab visible.");
-  const t0=performance.now();
+  recT0=performance.now();recording=true;$("btnRec").textContent="Stop";setStatus("Recording… keep this tab visible.");
+  const t0=recT0;
   rec.onstop=()=>{
     recording=false;clearInterval(iv);$("btnRec").textContent="Render video";$("progBar").style.width="0";
     if(gainSpk)gainSpk.gain.value=vid.muted?0:1;
@@ -837,16 +1027,17 @@ $("btnRec").onclick=async()=>{
 };
 $("btnSave").onclick=()=>{
   if(!lastBlob)return;
-  saveBlob("social-spot-"+S.res+"."+lastExt,lastBlob);setStatus("Saved to your Downloads folder.","ok");
+  saveBlob((TPL[S.tpl]||TPL.social).file+"-"+S.res+"."+lastExt,lastBlob);setStatus("Saved to your Downloads folder.","ok");
 };
 $("btnStill").onclick=async()=>{
   const [w,h]=S.res.split("x").map(Number);cv.width=w;cv.height=h;render();
   cv.toBlob(async b=>{
-    if(!b)return;saveBlob("social-spot-still.png",b);setStatus("Still saved to your Downloads folder.","ok");
+    if(!b)return;saveBlob((TPL[S.tpl]||TPL.social).file+"-still.png",b);setStatus("Still saved to your Downloads folder.","ok");
   },"image/png");
 };
 
 {const [w,h]=S.res.split("x").map(Number);cv.width=w;cv.height=h;}
+if(URL_TPL==="ushape"||URL_TPL==="social")setTemplate(URL_TPL);
 syncControls();makeQR();requestAnimationFrame(tick);
 })();
 </script>
@@ -929,7 +1120,7 @@ go.onclick=async()=>{
   go.disabled=true;bar.style.width="15%";say("Pulling the video. This can take up to a minute…");
   if($("bkAuto").checked)document.dispatchEvent(new CustomEvent("spot:pull",{detail:{url}}));
   try{
-    const info=await api("/api/pull",{url,start:start||undefined,end:end||undefined});
+    const info=await api("/api/pull",{url,start:start||undefined,end:end||undefined,hd:document.body.dataset.tpl==="ushape"});  // U Shape plays full screen: pull 1080p
     bar.style.width="70%";say("Loading into the builder…");
     const blob=await (await fetch(info.video_url)).blob();
     const base=(info.title||"").replace(/[^\w\- ]+/g,"").trim().slice(0,60)||info.id;
@@ -937,7 +1128,7 @@ go.onclick=async()=>{
     const dt=new DataTransfer();dt.items.add(file);
     const fv=$("fVideo");fv.files=dt.files;fv.dispatchEvent(new Event("change"));
     bar.style.width="100%";
-    say("Loaded "+file.name+" ("+(file.size/1048576).toFixed(1)+" MB) into the phone. "+statsMsg(applyStats(info.stats)),"ok");
+    say("Loaded "+file.name+" ("+(file.size/1048576).toFixed(1)+" MB) into the "+(document.body.dataset.tpl==="ushape"?"spot":"phone")+". "+statsMsg(applyStats(info.stats)),"ok");
   }catch(e){say(errMsg(e),"err");helpLink();}
   finally{go.disabled=false;setTimeout(()=>{bar.style.width="0";},1200);}
 };
@@ -1189,8 +1380,8 @@ async function hubLoad(reset){
       b.append(pic,t,sub);b.title="Use "+(l.brand||"this logo");
       b.onclick=async()=>{
         b.disabled=true;
-        try{await putFile("fLogo",l.url,"hub-logo."+l.url.split(".").pop().split("?")[0]);hubDlg.close();
-          const st2=$("hubStatus");st2.textContent="Logo from the InMarket Logo Hub: "+(l.brand||"logo")+(l.type?" ("+l.type+")":"")+".";st2.className="status ok";}
+        try{const retail=hubTarget==="fRetail";await putFile(hubTarget,l.url,(retail?"hub-retailer.":"hub-logo.")+l.url.split(".").pop().split("?")[0]);hubDlg.close();
+          const st2=$(retail?"hubStatusRetail":"hubStatus");st2.textContent=(retail?"Retailer logo":"Logo")+" from the InMarket Logo Hub: "+(l.brand||"logo")+(l.type?" ("+l.type+")":"")+".";st2.className="status ok";}
         catch(e){hubSay("Couldn't load that logo: "+(e.message||e),"err");}
         finally{b.disabled=false;}
       };
@@ -1201,11 +1392,17 @@ async function hubLoad(reset){
     $("hubMore").hidden=shown>=d.total;
   }catch(e){hubSay((e&&e.message)||"Couldn't reach the Logo Hub.","err");}
 }
-$("hubOpen").onclick=()=>{hubDlg.showModal();if(!hubGrid.children.length)hubLoad(true);$("hubQ").focus();};
+let hubTarget="fLogo";  // which file input a picked logo goes into: the brand logo or the retailer logo
+function hubOpen(target){
+  hubTarget=target;$("hubLead").textContent=target==="fRetail"?"the retailer's logo (left of the video).":"the spot's logo.";
+  hubDlg.showModal();if(!hubGrid.children.length)hubLoad(true);$("hubQ").focus();
+}
+$("hubOpen").onclick=()=>hubOpen("fLogo");
+$("hubOpenRetail").onclick=()=>hubOpen("fRetail");
 $("hubMore").onclick=()=>{hubPage++;hubLoad(false);};
 $("hubQ").addEventListener("input",()=>{clearTimeout(hubTimer);hubTimer=setTimeout(()=>{hubQ=$("hubQ").value.trim();hubLoad(true);},300);});
 hubDlg.addEventListener("click",e=>{if(e.target===hubDlg)hubDlg.close();});
-fetch("/api/health",{cache:"no-store"}).then(r=>{if(r.ok)$("hubRow").hidden=false;}).catch(()=>{});
+fetch("/api/health",{cache:"no-store"}).then(r=>{if(r.ok){$("hubRow").hidden=false;$("hubRowRetail").hidden=false;}}).catch(()=>{});
 
 /* ---------- AI background (Gemini) ---------- */
 const aiSt=$("aiStatus"), aiDlg=$("aiDlg");

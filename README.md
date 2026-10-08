@@ -73,6 +73,23 @@ Every prompt automatically asks for a calm centre (the phone sits there) and **n
 
 Only use videos you own or have permission to use.
 
+## Templates
+
+Pick a layout under **Template** at the top of the builder. Everything else (pull from a link, brand look, Logo Hub, QR tracking, AI backgrounds, Dark/Light, export) works the same in every template.
+
+- **CTV Social**: a vertical social video plays inside a phone, with the handle, profile stats and a QR card.
+- **CTV - U Shape**: a landscape video (e.g. a YouTube ad) plays full screen, then shrinks to the bottom centre. The brand logo drops in on top, the retailer's logo and the nearest store sit on the left, and the QR call to action on the right. Open it directly with **http://localhost:8765/?template=ushape**.
+
+### CTV - U Shape
+
+1. Paste the YouTube link into **Pull from a link** and click **Pull video + stats**. U Shape pulls in full HD (1080p) when YouTube has it; older uploads may only exist in lower quality.
+2. Under **U Shape**, set when the video shrinks (**Shrink into the U at**, e.g. 5 seconds; 0 starts in the U) and how long the move takes. **Video size in the U** makes the video bigger or smaller. The **Left shade** and **Right shade** colours fade in from the sides so the text stays readable.
+3. Under **Store**, add the **Retailer logo** (upload it or **Choose from InMarket Logo Hub**) and the nearest store's **address**, **phone** and **website**. Empty lines are hidden.
+4. Under **Brand**, set the brand logo as usual. Tick **Put the logo on a plate** to sit it on a coloured rounded plate.
+5. Under **QR code**, set the link (or a tracked QR) and the **Headline** (e.g. SCAN THE / QR CODE / TO LEARN / MORE). **Put the brand logo in the middle of the QR code** adds the logo like the Delta example; the code switches to its strongest error correction so it still scans. Always test-scan before exporting.
+
+Use **Restart** to watch the shrink again. Without a video, the preview shows the finished U layout.
+
 ## Positioning the logo
 
 Under **Brand**:
@@ -134,7 +151,8 @@ Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the instal
 | `aibg.py` | Gemini API client for AI backgrounds (`generateContent` with image output, 16:9; tries `gemini-3.1-flash-image`, then `gemini-2.5-flash-image`; override with `GEMINI_IMAGE_MODEL`). Key in `~/.config/ctv-spot-builder/gemini_api_key` (mode 600). Endpoints: `/api/ai/status`, `/api/ai/key`, `/api/ai/forget`, `/api/ai/background`. |
 | Logo Hub | `server.py` proxies `GET /api/logohub?q=&page=` to the Hub's `/api/search` (the Hub's API doesn't allow cross-site calls). Images load straight from the Hub's storage. Point at another Hub with `LOGO_HUB_URL`. |
 | `puller/brand.py` | Finds the brand's profile picture, website logo (`<img>`/inline SVG/JSON-LD/icons), and background images, and makes blurred 1920×1080 backgrounds with ffmpeg. Only fetches from public web addresses. Served via `/api/brand` and `/api/asset/…`. |
-| `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. |
+| `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. YouTube needs a JavaScript runtime, so the `deno` package (a bundled Deno binary) is installed with the requirements and passed to yt-dlp. `/api/pull` takes `hd: true` (sent by the U Shape template) for 1080p. |
+| Templates | `web/index.html` keeps one state object for every template; `S.tpl` picks the renderer (`renderSocial` or `renderU`), and elements with `data-tpl="…"` only show for that template. U Shape draws in 1920×1080 units and times its animation from the video's time (or the recording clock while exporting). |
 
 Pulled videos are kept in `cache/` (git-ignored) and deleted after a day.
 
