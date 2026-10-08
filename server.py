@@ -34,6 +34,12 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+try:  # use the Mac's own trusted certificates (fixes CERTIFICATE_VERIFY_FAILED on python.org Python
+    import truststore  # and behind company security proxies such as Zscaler)
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
 import aibg
 import qrcg
 

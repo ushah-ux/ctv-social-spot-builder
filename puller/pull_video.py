@@ -33,6 +33,12 @@ import tempfile
 from pathlib import Path
 
 import imageio_ffmpeg
+
+try:  # use the Mac's own trusted certificates (fixes CERTIFICATE_VERIFY_FAILED on python.org Python
+    import truststore  # and behind company security proxies such as Zscaler)
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
 import yt_dlp
 
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()

@@ -69,6 +69,7 @@ Every prompt automatically asks for a calm centre (the phone sits there) and **n
 - **Private post:** only works if your Safari login can see it.
 - **Some stats stay empty:** Instagram only shares profile counts (posts, followers, following) with a login, and shares are rarely available on any platform. Anything missing keeps its current value, so you can type it in.
 - **Rate-limited:** wait a few minutes and try again, or save the video yourself and upload it.
+- **"CERTIFICATE_VERIFY_FAILED":** your copy is older than the fix. Download the newest ZIP and double-click **Install Spot Builder.command** again. (The builder now uses your Mac's own trusted certificates, which also works behind company security tools like Zscaler.)
 
 Only use videos you own or have permission to use.
 
