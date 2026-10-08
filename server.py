@@ -9,6 +9,7 @@ Serves web/ and adds three endpoints the builder uses to pull videos by link:
   GET  /api/video/<id>.mp4    -> the pulled MP4
   POST /api/brand  {url, site?} -> {handle, name, site, items: [{kind, label, url}]}
   GET  /api/asset/<dir>/<file> -> a pulled brand image
+  GET  /api/logohub?q=&page= -> search the InMarket Logo Hub (proxied: the Hub's API has no CORS)
   AI backgrounds (Gemini API, see aibg.py):
   GET  /api/ai/status / POST /api/ai/key {key} / POST /api/ai/forget
   POST /api/ai/background {prompt, count?, ref?} -> {items: [{label, url, soft_url}]}
@@ -176,6 +177,41 @@ def ai_background(body: dict) -> dict:
                        "soft_url": f"/api/asset/{folder}/{i['soft']}"} for i in items]}
 
 
+LOGO_HUB = os.environ.get("LOGO_HUB_URL", "https://inmarket-logo-hub.vercel.app")
+
+
+def logohub(query: str) -> dict:
+    """Search the InMarket Logo Hub and return the fields the builder needs."""
+    import urllib.parse
+    import urllib.request
+    params = urllib.parse.parse_qs(query)
+    q = (params.get("q", [""])[0] or "")[:80]
+    try:
+        page = max(1, min(int(params.get("page", ["1"])[0]), 50))
+    except ValueError:
+        page = 1
+    url = f"{LOGO_HUB}/api/search?" + urllib.parse.urlencode({"q": q, "page": page})
+    req = urllib.request.Request(url, headers={"User-Agent": "CTV-Social-Spot-Builder/1.0", "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read(5_000_000))
+    except Exception:
+        raise PullError("hub_offline", "Couldn't reach the InMarket Logo Hub. Check your internet connection.")
+    logos = []
+    for l in data.get("logos") or []:
+        u = l.get("public_url") or ""
+        if not re.match(r"^https://[a-z0-9-]+\.supabase\.co/storage/v1/object/public/", u):
+            continue  # only the Hub's own image storage
+        logos.append({
+            "id": l.get("id"), "url": u, "name": l.get("original_name"), "mime": l.get("mime_type"),
+            "brand": l.get("brand_name") or "", "type": l.get("logo_type") or "",
+            "colours": l.get("color_scheme") or "", "retailer_tag": l.get("retailer_tag"),
+            "retailer": l.get("retailer_name"),
+        })
+    return {"logos": logos, "total": data.get("total", len(logos)), "page": page,
+            "pageSize": data.get("pageSize", 24)}
+
+
 def prune_dirs() -> None:
     cutoff = time.time() - 86400
     for d in CACHE.glob("b-*"):
@@ -218,6 +254,11 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/health":
             return self._json(200, {"ok": True})
+        if self.path.startswith("/api/logohub"):
+            try:
+                return self._json(200, logohub(self.path.partition("?")[2]))
+            except PullError as e:
+                return self._json(502, {"code": e.code, "message": str(e)})
         if self.path == "/api/ai/status":
             return self._json(200, {"connected": aibg.connected()})
         if self.path == "/api/qr/status":

@@ -110,6 +110,20 @@ dialog#pullDlg::backdrop{background:rgba(18,30,51,.55)}
 .cmd code{flex:1;min-width:0;font:500 12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 .cmd .copy{padding:5px 12px;font-size:11.5px}
 #btnLinkHelp{align-self:flex-start}
+.hubrow>button{flex:0 0 auto}
+dialog#hubDlg{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:0;border-radius:var(--r);background:var(--panel);color:var(--fg);box-shadow:0 18px 50px rgba(18,30,51,.35);padding:22px 22px 18px;font:14px/1.5 var(--f-ui)}
+dialog#hubDlg::backdrop{background:rgba(18,30,51,.55)}
+#hubDlg h2{margin:0 36px 6px 0;font-size:18px;font-weight:700}
+#hubDlg a{color:var(--link)}
+#hubDlg input[type=search]{width:100%;font:500 14px var(--f-ui);color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-s);padding:9px 12px;margin:6px 0 8px}
+.hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:6px 0 12px}
+.hubcard{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px;border:1.5px solid var(--line);border-radius:12px;background:var(--sunk);cursor:pointer;text-align:left;font:500 12px var(--f-ui);color:var(--fg)}
+.hubcard:hover{border-color:var(--magnet)}
+.hubcard .pic{height:84px;border-radius:8px;background-color:#b4bcc6;background-image:linear-gradient(45deg,#a4adb8 25%,transparent 25%),linear-gradient(-45deg,#a4adb8 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#a4adb8 75%),linear-gradient(-45deg,transparent 75%,#a4adb8 75%);background-size:14px 14px;background-position:0 0,0 7px,7px -7px,-7px 0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hubcard img{max-width:92%;max-height:72px;object-fit:contain}
+.hubcard b{font-weight:700;font-size:12.5px}
+.hubcard span{color:var(--muted);font-size:11px}
+
 .aibg{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
 .aibg .row>button{flex:0 0 auto}
 .aibg .row>.f{flex:0 0 120px}
@@ -266,6 +280,8 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
         <label class="file"><input type="file" id="fBg" accept="image/*"><span class="t">Background image</span><span class="s" id="fBgName">Blurred store (default)</span></label>
         <label class="f"><span id="bgDimLabel">Darken background</span><input type="range" id="bgDim" data-k="bgDim" min="0" max="0.8" step="0.01"></label>
         <label class="file"><input type="file" id="fLogo" accept="image/png,image/svg+xml,image/webp,image/*"><span class="t">Logo</span><span class="s" id="fLogoName">Kirkland's wordmark (default). Use a transparent PNG.</span></label>
+        <div class="row hubrow" id="hubRow" hidden><button type="button" id="hubOpen">Choose from InMarket Logo Hub</button></div>
+        <p class="status" id="hubStatus" role="status"></p>
         <label class="f"><span>Logo size</span><input type="range" id="logoScale" data-k="logoScale" min="0.4" max="1.2" step="0.01"></label>
         <label class="chk"><input type="checkbox" id="logoAuto" data-k="logoAuto"> Recolour the logo to suit the theme (white on Dark, text colour on Light)</label>
         <div class="row">
@@ -387,6 +403,16 @@ dialog#qtDlg::backdrop{background:rgba(18,30,51,.55)}
     <li><b>Rate-limited:</b> wait a few minutes and try again, or save the video from the post yourself and upload it.</li>
   </ul>
   <p class="hint">Only use videos you own or have permission to use.</p>
+</dialog>
+<dialog id="hubDlg" aria-labelledby="hubDlgTitle">
+  <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
+  <h2 id="hubDlgTitle">InMarket Logo Hub</h2>
+  <p class="hint">Approved brand logos from the <a href="https://inmarket-logo-hub.vercel.app" target="_blank" rel="noopener">InMarket Logo Hub</a>. Click one to use it as the spot's logo.</p>
+  <input type="search" id="hubQ" placeholder="Search a brand, e.g. Target" autocomplete="off" aria-label="Search the Logo Hub">
+  <p class="status" id="hubDlgStatus" role="status"></p>
+  <div class="hubgrid" id="hubGrid"></div>
+  <div class="row"><button type="button" id="hubMore" hidden>Load more</button></div>
+  <p class="hint">Missing a logo? <a href="https://inmarket-logo-hub.vercel.app/upload" target="_blank" rel="noopener">Add it to the Logo Hub</a>, then search again.</p>
 </dialog>
 <dialog id="aiDlg" aria-labelledby="aiDlgTitle">
   <form method="dialog" class="dlg-x"><button aria-label="Close">✕</button></form>
@@ -973,7 +999,7 @@ async function putFile(inputId,url,name){
 /* most common strong colour in an image (ignores near-white, near-black and greys) */
 function brandColour(url){
   return new Promise(res=>{
-    const im=new Image();im.onload=()=>{
+    const im=new Image();im.crossOrigin="anonymous";im.onload=()=>{
       try{
         const c=document.createElement("canvas"),n=48;c.width=n;c.height=n;const x=c.getContext("2d");x.drawImage(im,0,0,n,n);
         const d=x.getImageData(0,0,n,n).data,bins={};
@@ -990,9 +1016,10 @@ function brandColour(url){
     };im.onerror=()=>res(null);im.src=url;
   });
 }
+function esc(t){return String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function group(kind,title,items,cls){
   if(!items.length)return "";
-  const opts=items.map((it,i)=>`<label class="bk-opt ${cls||""}"><input type="radio" name="bk-${kind}" value="${i}" ${i===0?"checked":""}><span class="thumb" style="background-image:url('${it.url}')"></span>${it.label}</label>`).join("");
+  const opts=items.map((it,i)=>`<label class="bk-opt ${cls||""}"><input type="radio" name="bk-${kind}" value="${i}" ${i===0?"checked":""}><span class="thumb" style="background-image:url('${esc(it.url)}')"></span>${esc(it.label)}</label>`).join("");
   return `<div class="bk-group"><span class="lbl">${title}</span><div class="bk-opts">${opts}<label class="bk-opt"><input type="radio" name="bk-${kind}" value="keep"><span class="thumb none">Keep current</span>&nbsp;</label></div></div>`;
 }
 let kit=null;
@@ -1006,6 +1033,8 @@ async function runBrand(url,auto){
     if(!r.ok)throw d;
     kit=d;
     if(kit.site&&!site)$("bkSite").value=kit.site;
+    const hub=await hubMatches(kit.name,kit.handle);
+    kit.items=[...hub.map(l=>({kind:"logo",label:"Logo Hub: "+l.brand+" ("+(l.retailer_tag?(l.retailer_tag+" badge"):l.type)+")",url:l.url})),...kit.items];
     const by=k=>kit.items.filter(i=>i.kind===k);
     const html=group("logo","Logo",by("logo"))+group("avatar","Avatar (in the phone)",by("avatar"))+group("background","Background",by("background"),"bgthumb");
     if(!html){say("Couldn't find brand images for that post. Add the brand's website under Brand look and click Pull brand look.","err");return;}
@@ -1023,7 +1052,7 @@ async function runBrand(url,auto){
       document.querySelector(".brandopt").open=true;
       await apply(true);
     }else{
-      say("Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected.","ok");
+      say((hub.length?hub.length+" approved logo"+(hub.length>1?"s":"")+" from the InMarket Logo Hub. ":"")+"Found "+kit.items.length+" option"+(kit.items.length===1?"":"s")+(kit.site?" (including "+kit.site.replace(/^https?:\/\//,"").replace(/\/$/,"")+")":"")+". Pick what you want, then Apply selected.","ok");
     }
   }catch(e){say((e&&e.message)||"Couldn't pull the brand look.","err");}
   finally{b.disabled=false;}
@@ -1047,6 +1076,63 @@ async function apply(auto){
     say(done.length?(auto?"Brand look applied automatically: ":"Applied ")+done.join(", ")+"."+(auto?" To swap anything, open Brand look below.":" Adjust Logo size and Darken background under Brand if needed."):"Nothing selected, so nothing changed.","ok");
   }catch(e){say("Couldn't apply that: "+(e.message||e),"err");}
 }
+
+/* ---------- InMarket Logo Hub ---------- */
+function compact(t){return (t||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]/g,"");}
+async function hubSearch(q,page){
+  const r=await fetch("/api/logohub?"+new URLSearchParams({q:q||"",page:String(page||1)}),{cache:"no-store"});
+  const d=await r.json().catch(()=>({message:"Unexpected reply from the helper."}));if(!r.ok)throw d;return d;
+}
+/* Hub logos for this brand: brand logos first, "Available at" style retailer badges last */
+async function hubMatches(name,handle){
+  const target=compact(name),h=compact((handle||"").replace(/^@/,""));
+  const words=(name||"").split(/[^A-Za-z0-9']+/).filter(w=>w.length>2).sort((a,b)=>b.length-a.length);
+  const queries=[...new Set([name,words[0],(handle||"").replace(/^@/,"")].filter(Boolean))].slice(0,3);
+  const out=[],seen=new Set();
+  for(const q of queries){
+    let d;try{d=await hubSearch(q,1);}catch(e){return out;}
+    for(const l of d.logos||[]){
+      const b=compact(l.brand);
+      if(seen.has(l.id)||b.length<3)continue;
+      if(b===target||b===h||(target&&(target.startsWith(b)||b.startsWith(target)))||(h&&(h.startsWith(b)||b.startsWith(h)))){seen.add(l.id);out.push(l);}
+    }
+    if(out.length)break;
+  }
+  return out.sort((a,b)=>(!!a.retailer_tag)-(!!b.retailer_tag));
+}
+const hubDlg=$("hubDlg"),hubGrid=$("hubGrid");
+let hubQ="",hubPage=1,hubTimer=null;
+function hubSay(msg,cls){const el=$("hubDlgStatus");el.textContent=msg;el.className="status"+(cls?" "+cls:"");}
+async function hubLoad(reset){
+  if(reset){hubPage=1;hubGrid.textContent="";}
+  hubSay(reset?"Searching…":"Loading more…");$("hubMore").hidden=true;
+  try{
+    const d=await hubSearch(hubQ,hubPage);
+    for(const l of d.logos){
+      const b=document.createElement("button");b.type="button";b.className="hubcard";
+      const pic=document.createElement("span");pic.className="pic";const im=document.createElement("img");im.loading="lazy";im.alt="";im.src=l.url;pic.append(im);
+      const t=document.createElement("b");t.textContent=l.brand||"Untitled";
+      const sub=document.createElement("span");sub.textContent=(l.retailer_tag?l.retailer_tag+(l.retailer?" "+l.retailer:"")+" badge":l.type)+(l.colours?" · "+l.colours:"");
+      b.append(pic,t,sub);b.title="Use "+(l.brand||"this logo");
+      b.onclick=async()=>{
+        b.disabled=true;
+        try{await putFile("fLogo",l.url,"hub-logo."+l.url.split(".").pop().split("?")[0]);hubDlg.close();
+          const st2=$("hubStatus");st2.textContent="Logo from the InMarket Logo Hub: "+(l.brand||"logo")+(l.type?" ("+l.type+")":"")+".";st2.className="status ok";}
+        catch(e){hubSay("Couldn't load that logo: "+(e.message||e),"err");}
+        finally{b.disabled=false;}
+      };
+      hubGrid.append(b);
+    }
+    const shown=hubGrid.children.length;
+    hubSay(d.total?shown+" of "+d.total+" logo"+(d.total>1?"s":"")+(hubQ?" for “"+hubQ+"”":""):"No logos found"+(hubQ?" for “"+hubQ+"”. Try one word of the brand name.":"."));
+    $("hubMore").hidden=shown>=d.total;
+  }catch(e){hubSay((e&&e.message)||"Couldn't reach the Logo Hub.","err");}
+}
+$("hubOpen").onclick=()=>{hubDlg.showModal();if(!hubGrid.children.length)hubLoad(true);$("hubQ").focus();};
+$("hubMore").onclick=()=>{hubPage++;hubLoad(false);};
+$("hubQ").addEventListener("input",()=>{clearTimeout(hubTimer);hubTimer=setTimeout(()=>{hubQ=$("hubQ").value.trim();hubLoad(true);},300);});
+hubDlg.addEventListener("click",e=>{if(e.target===hubDlg)hubDlg.close();});
+fetch("/api/health",{cache:"no-store"}).then(r=>{if(r.ok)$("hubRow").hidden=false;}).catch(()=>{});
 
 /* ---------- AI background (Gemini) ---------- */
 const aiSt=$("aiStatus"), aiDlg=$("aiDlg");

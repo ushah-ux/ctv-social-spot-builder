@@ -61,6 +61,14 @@ Every prompt automatically asks for a calm centre (the phone sits there) and **n
 
 Only use videos you own or have permission to use.
 
+## InMarket Logo Hub
+
+The builder is connected to the [InMarket Logo Hub](https://inmarket-logo-hub.vercel.app), our library of approved brand logos.
+
+- **Pick one yourself:** under **Brand**, click **Choose from InMarket Logo Hub**, search for the brand (one word works best, e.g. "Target") and click a logo to put it in the spot.
+- **Automatic:** when you pull a brand's look, any matching Hub logos are listed first in **Brand look** and used by default, ahead of logos found on the brand's website. The brand's own logos come before its "Available at" retailer badges.
+- **Missing a logo?** [Add it to the Logo Hub](https://inmarket-logo-hub.vercel.app/upload) and it shows up in the builder straight away.
+
 ## Dark or light spot
 
 Under **Brand**, switch **Spot theme** between **Dark** (light text over a darker background) and **Light** (dark text over a soft white wash of the background). The slider becomes **Darken background** or **Lighten background** to match.
@@ -105,6 +113,7 @@ Works in current Chrome, Edge and Safari. Needs Python 3.10 or newer (the instal
 | `server.py` | Local helper (Python standard library). Serves `web/` and adds `/api/pull`, `/api/stats` and `/api/video/<id>.mp4`. Listens on `127.0.0.1` only and refuses cross-site requests. |
 | `qrcg.py` | Client for the [QR Code Generator PRO API](https://dev.qrcg.com/): creates dynamic URL codes and reads scan totals. The API key lives in `~/.config/ctv-spot-builder/qrcg_api_key` (mode 600), never in the browser. Endpoints: `/api/qr/status`, `/api/qr/key`, `/api/qr/forget`, `/api/qr/create`, `/api/qr/scans/<id>`. |
 | `aibg.py` | Gemini API client for AI backgrounds (`generateContent` with image output, 16:9; tries `gemini-3.1-flash-image`, then `gemini-2.5-flash-image`; override with `GEMINI_IMAGE_MODEL`). Key in `~/.config/ctv-spot-builder/gemini_api_key` (mode 600). Endpoints: `/api/ai/status`, `/api/ai/key`, `/api/ai/forget`, `/api/ai/background`. |
+| Logo Hub | `server.py` proxies `GET /api/logohub?q=&page=` to the Hub's `/api/search` (the Hub's API doesn't allow cross-site calls). Images load straight from the Hub's storage. Point at another Hub with `LOGO_HUB_URL`. |
 | `puller/brand.py` | Finds the brand's profile picture, website logo (`<img>`/inline SVG/JSON-LD/icons), and background images, and makes blurred 1920×1080 backgrounds with ffmpeg. Only fetches from public web addresses. Served via `/api/brand` and `/api/asset/…`. |
 | `puller/pull_video.py` | Downloads with [yt-dlp](https://github.com/yt-dlp/yt-dlp), converts to a browser-safe H.264 MP4 with a bundled ffmpeg, and reads the post's stats. Also works on its own from the command line. |
 
