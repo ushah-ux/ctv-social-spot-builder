@@ -748,10 +748,20 @@ function render(){
   if(S.showSocialIcon&&ic){ctx.drawImage(ic,935,441,44,44);fx=935+44+16;}
   if(S.followText)spaced(S.followText,fx,476,1600-fx,300,33);
   // stats
-  const cols=[[S.s1v,S.s1l,1015],[S.s2v,S.s2l,1280],[S.s3v,S.s3l,1527]];
-  ctx.textAlign="center";
-  cols.forEach(([v,l,x])=>{ctx.fillStyle=S.textColor;ctx.font=F(700,fitFont(v,700,72,236,24));ctx.fillText(v,x,583);ctx.font=F(500,fitFont(l,500,28.5,236,14));ctx.fillText(l,x,626);});
-  ctx.fillStyle=hexA(S.textColor,.75);ctx.fillRect(1149,527,2,107);ctx.fillRect(1410,527,2,107);
+  // One size for all three numbers (and one for the labels), as large as fits. The row runs from
+  // the handle's left edge to the follow line's right edge; the middle column and the dividers sit
+  // evenly in between, so long and short numbers stay aligned with everything above.
+  const cols=[[S.s1v,S.s1l],[S.s2v,S.s2l],[S.s3v,S.s3l]].map(([v,l])=>[String(v||""),String(l||"")]);
+  const SL=935,SR=1600,GAP=30;
+  let vs=72,ls=28.5,widths;
+  const measure=()=>cols.map(([v,l])=>{ctx.font=F(700,vs);const vw=ctx.measureText(v).width;ctx.font=F(500,ls);return Math.max(vw,ctx.measureText(l).width);});
+  for(;;){widths=measure();if(widths[0]+widths[1]+widths[2]+4*GAP+4<=SR-SL||vs<=24)break;vs-=1;ls=Math.max(14,vs*0.396);}
+  const b1=[SL,SL+widths[0]],b3=[SR-widths[2],SR],c2=(b1[1]+b3[0])/2,b2=[c2-widths[1]/2,c2+widths[1]/2];
+  const vy=583,ly=vy+Math.max(30,43*vs/72);
+  ctx.textAlign="center";ctx.fillStyle=S.textColor;
+  [b1,b2,b3].forEach((b,i)=>{const cx=(b[0]+b[1])/2;ctx.font=F(700,vs);ctx.fillText(cols[i][0],cx,vy);ctx.font=F(500,ls);ctx.fillText(cols[i][1],cx,ly);});
+  const dTop=vy-vs*0.78,dH=ly+8-dTop;
+  ctx.fillStyle=hexA(S.textColor,.75);ctx.fillRect(Math.round((b1[1]+b2[0])/2),dTop,2,dH);ctx.fillRect(Math.round((b2[1]+b3[0])/2),dTop,2,dH);
   // QR card
   ctx.save();ctx.shadowColor="rgba(0,0,0,.28)";ctx.shadowBlur=18*k;ctx.shadowOffsetY=4*k;const CL=935,CR=Math.max(935+520,930+logoW),CW=CR-CL;rr(CL,672,CW,190,32);ctx.fillStyle=S.cardColor;ctx.fill();ctx.restore();
   const QX=CL+35,QY=693,QS=148,DVX=QX+QS+46,TCX=(DVX+CR)/2,TMW=CR-DVX-56;
